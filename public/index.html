@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snapload | ارفع ملفك وشاركه بكود</title>
+<meta name="description" content="ارفع ملفك بسرعة واحصل على كود من 5 خانات لتحميله من أي جهاز.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>⚡ Snapload</h1>
+    <p class="sub">ارفع ملفك، خذ الكود، وحمّله من أي جهاز.</p>
+  </header>
+
+  <section class="card" id="uploadCard">
+    <h2>رفع ملف</h2>
+    <label class="drop" id="drop">
+      <input type="file" id="fileInput" hidden>
+      <div class="drop-icon">⬆</div>
+      <div><strong>اسحب الملف هنا</strong> أو اضغط للاختيار</div>
+      <div class="hint" id="limitHint"></div>
+    </label>
+
+    <div class="progress hidden" id="progress">
+      <div class="file-name" id="fileName"></div>
+      <div class="bar"><span id="barFill"></span></div>
+      <div class="hint" id="progressText"></div>
+    </div>
+
+    <div class="result hidden" id="result">
+      <div class="hint">كود الملف</div>
+      <div class="code" id="codeOut"></div>
+      <div class="actions">
+        <button class="btn" id="copyCode">نسخ الكود</button>
+        <button class="btn ghost" id="copyLink">نسخ الرابط</button>
+        <button class="btn ghost" id="another">رفع ملف آخر</button>
+      </div>
+      <div class="hint" id="expiryText"></div>
+    </div>
+    <div class="error hidden" id="uploadError"></div>
+  </section>
+
+  <section class="card">
+    <h2>تحميل ملف</h2>
+    <form id="getForm" autocomplete="off">
+      <input id="codeIn" class="code-input" maxlength="5" placeholder="•••••" inputmode="latin" spellcheck="false" aria-label="الكود" dir="ltr">
+      <button class="btn" type="submit">تحميل</button>
+    </form>
+    <div class="hint" id="fileInfo"></div>
+    <div class="error hidden" id="getError"></div>
+  </section>
+
+  <footer class="hint">تُحذف الملفات تلقائياً بعد <span id="ttl">60</span> دقيقة من آخر تحميل (أو من الرفع إن لم تُحمّل).</footer>
+</main>
+<div class="toast hidden" id="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>

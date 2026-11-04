@@ -1,0 +1,19 @@
+{
+  "name": "snapload",
+  "version": "1.0.0",
+  "description": "Fast file sharing with 5-character codes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.22.3",
+    "multer": "^2.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}
