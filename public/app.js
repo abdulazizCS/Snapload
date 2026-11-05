@@ -123,6 +123,65 @@
     if (await lookup(code)) location.href = `/d/${code}`;
   });
 
+  // ---------- settings: rotation + custom keypad ----------
+  const store = {
+    get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const gearBtn = $('gearBtn');
+  const panel = $('settings');
+  const openPanel = (on) => { show(panel, on); gearBtn.setAttribute('aria-expanded', String(on)); };
+  gearBtn.onclick = () => openPanel(panel.classList.contains('hidden'));
+  $('closeSettings').onclick = () => openPanel(false);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openPanel(false); });
+  document.addEventListener('click', (e) => {
+    if (!panel.classList.contains('hidden') && !panel.contains(e.target) && !gearBtn.contains(e.target)) openPanel(false);
+  });
+
+  const ROTS = ['0', '90', '180', '270'];
+  function setRotation(r) {
+    if (!ROTS.includes(r)) r = '0';
+    ROTS.forEach((x) => document.documentElement.classList.toggle(`rot-${x}`, x === r && r !== '0'));
+    document.querySelectorAll('#rotateSeg button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.rot === r)));
+    store.set('snapload.rotation', r);
+  }
+  document.querySelectorAll('#rotateSeg button').forEach((b) => { b.onclick = () => setRotation(b.dataset.rot); });
+  setRotation(store.get('snapload.rotation') || '0');
+
+  const keypad = $('keypad');
+  const setCode = (v) => { codeIn.value = v; codeIn.dispatchEvent(new Event('input')); };
+  const key = (label, cls, fn, aria) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    if (cls) b.className = cls;
+    if (aria) b.setAttribute('aria-label', aria);
+    b.addEventListener('click', fn);
+    keypad.appendChild(b);
+  };
+  ALPHABET.split('').forEach((ch) => key(ch, '', () => { if (codeIn.value.length < 5) setCode(codeIn.value + ch); }));
+  key('⌫', 'key-del', () => setCode(codeIn.value.slice(0, -1)), 'حذف حرف');
+  key('مسح', 'key-clear', () => setCode(''));
+
+  // A physical keyboard still works while the input is read-only.
+  codeIn.addEventListener('keydown', (e) => {
+    if (!codeIn.readOnly || e.ctrlKey || e.metaKey || e.altKey) return;
+    const ch = e.key.length === 1 ? e.key.toUpperCase() : '';
+    if (ALPHABET.includes(ch) && ch) { e.preventDefault(); if (codeIn.value.length < 5) setCode(codeIn.value + ch); }
+    else if (e.key === 'Backspace') { e.preventDefault(); setCode(codeIn.value.slice(0, -1)); }
+  });
+
+  const kbToggle = $('kbToggle');
+  function setKeypad(on) {
+    kbToggle.checked = on;
+    show(keypad, on);
+    // Stop the device keyboard from popping up while the on-screen one is active.
+    codeIn.readOnly = on;
+    codeIn.setAttribute('inputmode', on ? 'none' : 'latin');
+    store.set('snapload.keypad', on ? '1' : '0');
+  }
+  kbToggle.addEventListener('change', () => setKeypad(kbToggle.checked));
+  setKeypad(store.get('snapload.keypad') === '1');
+
   // Shared link: /?c=CODE
   const pre = new URLSearchParams(location.search).get('c');
   if (pre) { codeIn.value = pre; codeIn.dispatchEvent(new Event('input')); codeIn.focus(); }
