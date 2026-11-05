@@ -113,3 +113,80 @@ footer { text-align: center; margin-top: 8px; }
   background: var(--brand-amber); color: #013364; font-weight: 500;
   padding: 8px 16px; border-radius: 99px; font-size: .9rem;
 }
+
+/* ---------- settings ---------- */
+.gear {
+  position: fixed; top: 14px; inset-inline-end: 14px; z-index: 30;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--card); color: var(--text);
+  font-size: 1.35rem; line-height: 1; cursor: pointer;
+  transition: transform .3s;
+}
+.gear:hover, .gear[aria-expanded="true"] { transform: rotate(60deg); border-color: var(--highlight); }
+.settings {
+  position: fixed; top: 66px; inset-inline-end: 14px; z-index: 30;
+  width: min(320px, calc(100vw - 28px));
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 16px 18px; box-shadow: 0 12px 32px rgba(1, 51, 100, .18);
+}
+.settings h2 { margin: 0; }
+.settings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.icon-btn { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 8px; }
+.setting { display: block; padding: 12px 0; border-top: 1px solid var(--border); }
+.setting-label { display: block; font-weight: 500; margin-bottom: 8px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; direction: ltr; background: var(--bg); border-radius: 10px; padding: 4px; }
+.seg button {
+  font: inherit; font-weight: 500; border: 0; border-radius: 8px; padding: 6px 0;
+  background: transparent; color: var(--text); cursor: pointer;
+}
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.switch-row .setting-label { margin-bottom: 2px; }
+.switch-row .hint { display: block; font-size: .8rem; }
+.switch {
+  appearance: none; -webkit-appearance: none; flex: none;
+  width: 46px; height: 26px; border-radius: 99px; margin: 0;
+  background: var(--border); position: relative; cursor: pointer; transition: background .2s;
+}
+.switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: transform .2s;
+}
+.switch:checked { background: var(--brand-green); }
+.switch:checked::after { transform: translateX(20px); }
+.switch:focus-visible, .seg button:focus-visible, .gear:focus-visible { outline: 2px solid var(--brand-amber); outline-offset: 2px; }
+
+/* ---------- page rotation ---------- */
+#stage { transition: transform .35s ease; }
+html.rot-90 body, html.rot-180 body, html.rot-270 body { overflow: hidden; height: 100vh; }
+html.rot-180 #stage, html.rot-90 #stage, html.rot-270 #stage { position: fixed; top: 0; left: 0; overflow: auto; }
+html.rot-180 #stage { width: 100vw; height: 100vh; transform: rotate(180deg); }
+html.rot-90 #stage, html.rot-270 #stage { width: 100vh; height: 100vw; }
+html.rot-90 #stage { transform-origin: top left; transform: translateX(100vw) rotate(90deg); }
+html.rot-270 #stage { transform-origin: top left; transform: translateY(100vh) rotate(-90deg); }
+@supports (height: 100dvh) {
+  html.rot-90 body, html.rot-180 body, html.rot-270 body { height: 100dvh; }
+  html.rot-180 #stage { width: 100dvw; height: 100dvh; }
+  html.rot-90 #stage, html.rot-270 #stage { width: 100dvh; height: 100dvw; }
+  html.rot-90 #stage { transform: translateX(100dvw) rotate(90deg); }
+  html.rot-270 #stage { transform: translateY(100dvh) rotate(-90deg); }
+}
+
+/* ---------- custom keypad ---------- */
+.keypad {
+  display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 12px;
+  user-select: none; -webkit-user-select: none;
+}
+.keypad button {
+  font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 1.05rem; font-weight: 700;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
+  padding: 10px 0; cursor: pointer; touch-action: manipulation;
+}
+.keypad button:hover { border-color: var(--highlight); }
+.keypad button:active { background: var(--accent-soft); transform: translateY(1px); }
+.keypad .key-clear { grid-column: 1 / -1; font-family: inherit; font-size: .95rem; }
+.keypad .key-del { color: var(--danger); }
+@media (max-width: 420px) {
+  .keypad { grid-template-columns: repeat(6, 1fr); }
+  .keypad .key-clear { grid-column: span 4; }
+}
