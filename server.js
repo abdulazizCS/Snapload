@@ -10,6 +10,7 @@ const cfg = require('./lib/config');
 const store = require('./lib/storage');
 const stats = require('./lib/stats');
 const admin = require('./lib/admin');
+const journal = require('./lib/journal');
 const { createLimiter } = require('./lib/rateLimit');
 const { securityHeaders, sameOrigin, DOWNLOAD_CSP } = require('./lib/security');
 
@@ -81,20 +82,33 @@ app.get('/api/config', (_req, res) => {
   res.json({ maxFileMb: cfg.MAX_FILE_MB, ttlMinutes: cfg.TTL_MS / 60000, codeLength: cfg.CODE_LEN });
 });
 
+// Failed uploads go to the journal too, so problems show up in the dashboard.
+function logUploadFail(req, reason) {
+  journal.log('upload_fail', {
+    reason,
+    size: parseInt(req.get('content-length'), 10) || 0,
+    ms: Date.now() - req._t0,
+    ip: journal.maskIp(req.ip),
+  });
+}
+
 app.post('/api/upload', sameOrigin, wrap(async (req, res) => {
+  req._t0 = Date.now();
   const ip = req.ip;
-  if (uploadLimiter.hit(ip)) return tooMany(res, uploadLimiter, ip, false);
+  if (uploadLimiter.hit(ip)) { logUploadFail(req, 'rate_limited'); return tooMany(res, uploadLimiter, ip, false); }
 
   // Refuse oversized or unsized bodies before reading a single byte.
   const len = parseInt(req.get('content-length'), 10);
+  if (!Number.isFinite(len)) logUploadFail(req, 'no_length');
   if (!Number.isFinite(len)) return res.status(411).json({ error: 'حجم الطلب غير معروف' });
   if (len > cfg.MAX_FILE_BYTES + 64 * 1024) {
     stats.record('tooLarge');
+    logUploadFail(req, 'too_large');
     return res.status(413).json({ error: `الحد الأقصى لحجم الملف ${cfg.MAX_FILE_MB} ميجابايت` });
   }
 
   const release = await store.reserveSpace(len);
-  if (!release) stats.record('storageFull');
+  if (!release) { stats.record('storageFull'); logUploadFail(req, 'storage_full'); }
   if (!release) return res.status(507).json({ error: 'الخادم ممتلئ حالياً، حاول لاحقاً' });
   res.on('close', release);
 
@@ -107,12 +121,13 @@ app.post('/api/upload', sameOrigin, wrap(async (req, res) => {
 async function handleUpload(err, req, res) {
   if (err) {
     if (err.code === 'LIMIT_FILE_SIZE') stats.record('tooLarge');
+    logUploadFail(req, err.code === 'LIMIT_FILE_SIZE' ? 'too_large' : req.destroyed || req.aborted ? 'aborted' : 'bad_request');
     const msg = err.code === 'LIMIT_FILE_SIZE'
       ? `الحد الأقصى لحجم الملف ${cfg.MAX_FILE_MB} ميجابايت`
       : 'فشل الرفع';
     return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: msg });
   }
-  if (!req.file) return res.status(400).json({ error: 'لم يتم اختيار ملف' });
+  if (!req.file) { logUploadFail(req, 'no_file'); return res.status(400).json({ error: 'لم يتم اختيار ملف' }); }
 
   let code;
   try {
@@ -121,13 +136,17 @@ async function handleUpload(err, req, res) {
     // multer decodes the name as latin1; restore UTF-8 (Arabic names etc.)
     const name = store.sanitizeName(Buffer.from(req.file.originalname, 'latin1').toString('utf8'));
     const now = Date.now();
-    const meta = { name, size: req.file.size, createdAt: now, expiresAt: now + cfg.TTL_MS, downloads: 0 };
+    const meta = { uid: journal.newUid(), name, size: req.file.size, createdAt: now, expiresAt: now + cfg.TTL_MS, downloads: 0 };
     await store.writeMeta(code, meta);
     store.addUsed(meta.size);
     stats.record('upload', meta.size);
+    journal.log('upload', {
+      uid: meta.uid, code, name, size: meta.size, ms: now - req._t0, ip: journal.maskIp(req.ip),
+    });
     res.json({ code, name, size: meta.size, expiresAt: meta.expiresAt });
   } catch (e) {
     console.error('upload failed', e);
+    logUploadFail(req, 'server_error');
     fsp.unlink(req.file.path).catch(() => {});
     if (code) await store.removeEntry(code);
     res.status(500).json({ error: 'خطأ في الخادم' });
@@ -152,6 +171,17 @@ app.get('/d/:code', wrap(async (req, res) => {
   meta.expiresAt = Date.now() + cfg.TTL_MS;
   await store.writeMeta(code, meta).catch(() => {});
   stats.record('download', meta.size);
+  // Record whether the whole file was delivered, and how long it took.
+  const t0 = Date.now();
+  const uid = journal.uidOf(code, meta);
+  let logged = false;
+  const logDownload = (ok) => {
+    if (logged) return;
+    logged = true;
+    journal.log('download', { uid, code, ok, ms: Date.now() - t0 });
+  };
+  res.on('finish', () => logDownload(true));
+  res.on('close', () => logDownload(res.writableFinished));
   // Always an opaque attachment: an uploaded .html/.svg must never render
   // (and run script) on this site's origin.
   res.download(store.filePath(code), meta.name, {

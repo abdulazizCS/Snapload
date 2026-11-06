@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>لوحة التحكم | Snapload</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/admin/admin.css?v=1">
+<link rel="stylesheet" href="/admin/admin.css?v=2">
 </head>
 <body>
 
@@ -82,10 +82,45 @@
     </div>
     <div class="muted empty hidden" id="noFiles">لا توجد ملفات نشطة حالياً.</div>
   </section>
+
+  <section class="card" id="journalCard">
+    <div class="row-between">
+      <h2>سجل العمليات <span class="muted small" id="jSince"></span></h2>
+      <button class="btn ghost" id="exportCsv">تصدير CSV</button>
+    </div>
+    <p class="muted small jnote">كل عملية رفع تُسجَّل هنا وتبقى بعد حذف الملف. يُحذف الملف فقط، أما السجل فيبقى <span id="jRetention"></span>.</p>
+
+    <div class="perf" aria-label="أداء الخدمة">
+      <div><dt>نسبة نجاح الرفع</dt><dd id="pSuccess">–</dd><small id="pSuccessSub"></small></div>
+      <div><dt>متوسط مدة الرفع</dt><dd id="pUpMs">–</dd><small>الوسيط لكل الملفات</small></div>
+      <div><dt>متوسط سرعة الرفع</dt><dd id="pSpeed">–</dd><small>للملفات فوق 256 ك.ب</small></div>
+      <div><dt>تحميلات مكتملة</dt><dd id="pDl">–</dd><small id="pDlSub"></small></div>
+      <div><dt>ملفات لم تُحمَّل أبداً</dt><dd id="pNever">–</dd><small>من الملفات المحذوفة</small></div>
+    </div>
+
+    <div class="jtools">
+      <div class="seg" role="group" aria-label="تصفية السجل" id="jFilter">
+        <button data-f="all" class="on">الكل</button>
+        <button data-f="active">نشط</button>
+        <button data-f="deleted">محذوف</button>
+        <button data-f="failed">فشل</button>
+      </div>
+      <input type="search" id="jSearch" placeholder="بحث بالكود أو الاسم" aria-label="بحث">
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead id="jHead"></thead>
+        <tbody id="jBody"></tbody>
+      </table>
+    </div>
+    <div class="muted empty hidden" id="jEmpty">لا توجد عمليات.</div>
+    <div class="center"><button class="btn ghost hidden" id="jMore">عرض المزيد</button></div>
+  </section>
 </main>
 
 <div class="tip hidden" id="tip" role="tooltip"></div>
 <div class="toast hidden" id="toast"></div>
-<script src="/admin/admin.js?v=1"></script>
+<script src="/admin/admin.js?v=2"></script>
 </body>
 </html>

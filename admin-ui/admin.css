@@ -143,3 +143,23 @@ td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   background: #FFBD59; color: #013364; font-weight: 500;
   padding: 8px 16px; border-radius: 99px; font-size: .9rem;
 }
+
+/* operations journal */
+.jnote { margin: -4px 0 12px; }
+.perf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 16px; margin: 0 0 16px; }
+.perf div { border-inline-start: 3px solid var(--s-dl); padding-inline-start: 10px; }
+.perf dt { color: var(--muted); font-size: .85rem; }
+.perf dd { margin: 0; font-weight: 700; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.perf small { color: var(--muted); font-size: .78rem; }
+.jtools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.jtools input {
+  flex: 1; min-width: 160px; font: inherit; padding: 6px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .8rem; font-weight: 500; white-space: nowrap; border: 1px solid currentColor; }
+.badge.ok { color: var(--s-dl); }
+.badge.gone { color: var(--muted); }
+.badge.admin { color: var(--warn); }
+.badge.fail { color: var(--danger); }
+td.ip { direction: ltr; text-align: start; color: var(--muted); font-size: .82rem; white-space: nowrap; }
+.center { text-align: center; margin-top: 10px; }

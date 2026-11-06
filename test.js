@@ -197,12 +197,36 @@ function rawGet(p) {
     assert.strictEqual((await del('ZZZZZ')).status, 404);
     console.log('admin dashboard ok');
 
+    // ---- operations journal ----
+    const journal = async () => (await adminGet('/api/admin/journal', ADMIN_TOKEN)).json();
+    let j = await journal();
+    const rec = j.records.find((x) => x.code === up.code);
+    assert.ok(rec, 'upload recorded');
+    assert.strictEqual(rec.name, 'ملف تجربة.txt');
+    assert.ok(rec.uploadMs >= 0 && rec.downloads >= 1 && !rec.deletedAt);
+    assert.match(rec.ip, /^10\.0\.0\.x$/, 'IP stored masked');
+    const evilRec = j.records.find((x) => x.code === evil.code);
+    assert.strictEqual(evilRec.deleteReason, 'admin', 'admin delete recorded');
+    for (const reason of ['too_large', 'storage_full', 'rate_limited']) {
+      assert.ok(j.failures.some((f) => f.reason === reason), `failure ${reason} recorded`);
+    }
+    assert.ok(j.perf.uploads >= 5 && j.perf.successRate > 0 && j.perf.successRate < 1);
+    assert.ok(j.perf.downloadsCompleted >= 2);
+    assert.strictEqual((await adminGet('/api/admin/journal')).status, 401);
+    console.log('journal ok');
+
     // ---- expiry: wait past TTL; lookup must 404 and files removed ----
     await sleep(3500);
     r = await get(`/d/${up.code}`);
     assert.strictEqual(r.status, 404);
     assert.ok(!fs.existsSync(path.join(dir, 'files', up.code)), 'file deleted');
     console.log('expiry ok');
+
+    // The file is gone but its record stays, marked as expired.
+    j = await journal();
+    const gone = j.records.find((x) => x.code === up.code);
+    assert.ok(gone && gone.deletedAt && gone.deleteReason === 'expired', 'expired upload keeps its record');
+    console.log('journal keeps deleted files ok');
     console.log('\nALL TESTS PASSED');
   } catch (e) {
     console.error('TEST FAILED', e);
