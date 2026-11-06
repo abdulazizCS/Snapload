@@ -8,6 +8,8 @@ const path = require('path');
 
 const cfg = require('./lib/config');
 const store = require('./lib/storage');
+const stats = require('./lib/stats');
+const admin = require('./lib/admin');
 const { createLimiter } = require('./lib/rateLimit');
 const { securityHeaders, sameOrigin, DOWNLOAD_CSP } = require('./lib/security');
 
@@ -27,6 +29,7 @@ const lookupLimiter = createLimiter({ limit: cfg.LOOKUPS_PER_MIN, windowMs: 60 *
 const failLimiter = createLimiter({ limit: cfg.FAILED_LOOKUPS_PER_15MIN, windowMs: 15 * 60 * 1000 });
 
 function tooMany(res, limiter, key, html) {
+  stats.record('rateLimited');
   res.set('Retry-After', String(limiter.retryAfter(key)));
   if (html) return res.status(429).type('text/plain; charset=utf-8').send(MSG_TOO_MANY);
   return res.status(429).json({ error: MSG_TOO_MANY });
@@ -44,6 +47,7 @@ async function findOr404(req, res, { html }) {
   if (meta) return { code, meta };
 
   failLimiter.hit(ip);
+  stats.record('failedLookup');
   if (html) res.status(404).sendFile(NOT_FOUND_PAGE);
   else res.status(404).json({ error: MSG_NOT_FOUND });
   return null;
@@ -85,10 +89,12 @@ app.post('/api/upload', sameOrigin, wrap(async (req, res) => {
   const len = parseInt(req.get('content-length'), 10);
   if (!Number.isFinite(len)) return res.status(411).json({ error: 'حجم الطلب غير معروف' });
   if (len > cfg.MAX_FILE_BYTES + 64 * 1024) {
+    stats.record('tooLarge');
     return res.status(413).json({ error: `الحد الأقصى لحجم الملف ${cfg.MAX_FILE_MB} ميجابايت` });
   }
 
   const release = await store.reserveSpace(len);
+  if (!release) stats.record('storageFull');
   if (!release) return res.status(507).json({ error: 'الخادم ممتلئ حالياً، حاول لاحقاً' });
   res.on('close', release);
 
@@ -100,6 +106,7 @@ app.post('/api/upload', sameOrigin, wrap(async (req, res) => {
 
 async function handleUpload(err, req, res) {
   if (err) {
+    if (err.code === 'LIMIT_FILE_SIZE') stats.record('tooLarge');
     const msg = err.code === 'LIMIT_FILE_SIZE'
       ? `الحد الأقصى لحجم الملف ${cfg.MAX_FILE_MB} ميجابايت`
       : 'فشل الرفع';
@@ -117,6 +124,7 @@ async function handleUpload(err, req, res) {
     const meta = { name, size: req.file.size, createdAt: now, expiresAt: now + cfg.TTL_MS, downloads: 0 };
     await store.writeMeta(code, meta);
     store.addUsed(meta.size);
+    stats.record('upload', meta.size);
     res.json({ code, name, size: meta.size, expiresAt: meta.expiresAt });
   } catch (e) {
     console.error('upload failed', e);
@@ -143,6 +151,7 @@ app.get('/d/:code', wrap(async (req, res) => {
   meta.lastDownloadAt = Date.now();
   meta.expiresAt = Date.now() + cfg.TTL_MS;
   await store.writeMeta(code, meta).catch(() => {});
+  stats.record('download', meta.size);
   // Always an opaque attachment: an uploaded .html/.svg must never render
   // (and run script) on this site's origin.
   res.download(store.filePath(code), meta.name, {
@@ -154,6 +163,9 @@ app.get('/d/:code', wrap(async (req, res) => {
     },
   });
 }));
+
+// Private admin dashboard (404 unless ADMIN_TOKEN is set).
+app.use(admin.router({ failLimiter, lookupLimiter, uploadLimiter }));
 
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'], index: 'index.html' }));
 

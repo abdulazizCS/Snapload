@@ -8,6 +8,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY server.js ./
 COPY lib ./lib
 COPY public ./public
+COPY admin-ui ./admin-ui
 RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
 USER node
 EXPOSE 3000

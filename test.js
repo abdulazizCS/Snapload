@@ -12,6 +12,7 @@ const http = require('http');
 const PORT = 3999;
 const BASE = `http://127.0.0.1:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'snapload-'));
+const ADMIN_TOKEN = 'test-admin-token-0123456789abcdef';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The test talks to the server directly, standing in for the one trusted
@@ -47,6 +48,7 @@ function rawGet(p) {
       ...process.env, PORT: String(PORT), UPLOAD_DIR: dir,
       TTL_MINUTES: '0.05', MAX_FILE_MB: '1', MAX_STORAGE_MB: '3', MIN_FREE_MB: '0',
       FAILED_LOOKUPS_PER_15MIN: '5', UPLOADS_PER_10MIN: '8',
+      ADMIN_TOKEN,
     },
     stdio: 'inherit',
   });
@@ -161,6 +163,39 @@ function rawGet(p) {
     }
     assert.ok(full, 'quota eventually refuses uploads');
     console.log('storage quota ok');
+
+    // ---- admin dashboard ----
+    const adminGet = (p, tok, ip = freshIp()) => get(p, ip, tok ? { Authorization: `Bearer ${tok}` } : {});
+    r = await get('/admin');
+    assert.strictEqual(r.status, 200);
+    assert.match(r.headers.get('x-robots-tag'), /noindex/);
+    assert.match(r.headers.get('content-security-policy'), /script-src 'self'(;|$)/);
+    assert.strictEqual((await adminGet('/api/admin/stats')).status, 401, 'no token');
+    assert.strictEqual((await adminGet('/api/admin/stats', 'wrong')).status, 401, 'wrong token');
+    const adminIp = '10.7.7.7';
+    for (let i = 0; i < 10; i++) await adminGet('/api/admin/stats', 'nope', adminIp);
+    assert.strictEqual((await adminGet('/api/admin/stats', ADMIN_TOKEN, adminIp)).status, 429, 'admin brute force locked');
+    r = await adminGet('/api/admin/stats', ADMIN_TOKEN);
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.headers.get('cache-control'), 'no-store');
+    const st = await r.json();
+    assert.ok(st.totals.up >= 5, 'uploads counted');
+    assert.ok(st.totals.dl >= 2, 'downloads counted');
+    assert.ok(st.totals.fail >= 6, 'wrong codes counted');
+    assert.ok(st.totals.rl >= 1 && st.totals.full >= 1 && st.totals.big >= 1 && st.totals.adm >= 12);
+    assert.ok(st.live.count >= 1 && st.live.files.some((f) => f.code === up.code));
+    assert.ok(st.security.blockedIps >= 1, 'attacker IP shown as blocked');
+    assert.ok(st.storage.usedBytes > 0 && st.storage.maxBytes === 3 * 1024 * 1024);
+    assert.ok(st.hours.length >= 1);
+    // delete a file from the dashboard
+    const del = (code, headers = {}) => fetch(`${BASE}/api/admin/file/${code}`, {
+      method: 'DELETE', headers: { 'X-Forwarded-For': freshIp(), Authorization: `Bearer ${ADMIN_TOKEN}`, ...headers },
+    });
+    assert.strictEqual((await del(evil.code, { 'Sec-Fetch-Site': 'cross-site' })).status, 403);
+    assert.strictEqual((await del(evil.code)).status, 200);
+    assert.strictEqual((await get(`/api/file/${evil.code}`)).status, 404, 'deleted file is gone');
+    assert.strictEqual((await del('ZZZZZ')).status, 404);
+    console.log('admin dashboard ok');
 
     // ---- expiry: wait past TTL; lookup must 404 and files removed ----
     await sleep(3500);
