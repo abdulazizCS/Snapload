@@ -74,6 +74,7 @@
       currentCode = data.code;
       show($('progress'), false); show($('result'));
       $('codeOut').textContent = data.code;
+      drawQr(shareLink(data.code));
       $('expiryText').textContent = `يُحذف الملف الساعة ${fmtTime(data.expiresAt)} إذا لم يُحمّل.`;
     };
     xhr.onerror = () => fail('انقطع الاتصال أثناء الرفع');
@@ -86,8 +87,43 @@
     }
   }
 
+  const shareLink = (code) => `${location.origin}/?c=${code}`;
+
+  // Draw QR in brand navy on white (kept high-contrast so phones scan it in dark mode too).
+  function drawQr(text) {
+    const canvas = $('qrCanvas');
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      const n = qr.getModuleCount();
+      const quiet = 4, scale = 10;
+      const size = (n + quiet * 2) * scale;
+      canvas.width = canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = '#013364';
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (qr.isDark(r, c)) ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+        }
+      }
+      show(canvas.parentElement);
+    } catch {
+      show(canvas.parentElement, false);
+    }
+  }
+
+  $('saveQr').onclick = () => {
+    const a = document.createElement('a');
+    a.href = $('qrCanvas').toDataURL('image/png');
+    a.download = `snapload-${currentCode}.png`;
+    a.click();
+  };
+
   $('copyCode').onclick = () => copy(currentCode, 'تم نسخ الكود');
-  $('copyLink').onclick = () => copy(`${location.origin}/?c=${currentCode}`, 'تم نسخ الرابط');
+  $('copyLink').onclick = () => copy(shareLink(currentCode), 'تم نسخ الرابط');
   $('another').onclick = resetUpload;
 
   // ---------- download ----------
