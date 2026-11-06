@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>لوحة التحكم | Snapload</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/admin.css?v=1">
+</head>
+<body>
+
+<section class="login hidden" id="login">
+  <form class="card" id="loginForm" autocomplete="off">
+    <h1>لوحة التحكم</h1>
+    <p class="muted">أدخل رمز الدخول، أو افتح الرابط الخاص مباشرة.</p>
+    <input type="password" id="tokenIn" placeholder="رمز الدخول" dir="ltr" aria-label="رمز الدخول" required>
+    <button class="btn" type="submit">دخول</button>
+    <div class="error hidden" id="loginError"></div>
+  </form>
+</section>
+
+<main class="hidden" id="app">
+  <header class="top">
+    <div>
+      <h1>لوحة تحكم Snapload</h1>
+      <div class="muted" id="updated">جارٍ التحميل…</div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="refresh">تحديث</button>
+      <button class="btn ghost" id="logout">خروج</button>
+    </div>
+  </header>
+
+  <section class="kpis" aria-label="المؤشرات الرئيسية">
+    <div class="kpi"><div class="kpi-label">الملفات النشطة الآن</div><div class="kpi-value" id="kActive">–</div><div class="kpi-sub" id="kActiveSub"></div></div>
+    <div class="kpi"><div class="kpi-label">رفع اليوم</div><div class="kpi-value" id="kUpToday">–</div><div class="kpi-sub" id="kUpTodaySub"></div></div>
+    <div class="kpi"><div class="kpi-label">تحميل اليوم</div><div class="kpi-value" id="kDlToday">–</div><div class="kpi-sub" id="kDlTodaySub"></div></div>
+    <div class="kpi"><div class="kpi-label">أكواد خاطئة اليوم</div><div class="kpi-value" id="kFailToday">–</div><div class="kpi-sub" id="kBlocked"></div></div>
+  </section>
+
+  <section class="card storage" aria-label="المساحة">
+    <div class="row-between">
+      <h2>المساحة المستخدمة</h2>
+      <div class="muted" id="storageText"></div>
+    </div>
+    <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" id="meter"><span id="meterFill"></span></div>
+    <div class="muted small" id="diskText"></div>
+  </section>
+
+  <section class="card">
+    <div class="row-between">
+      <h2>النشاط</h2>
+      <div class="seg" role="group" aria-label="الفترة">
+        <button data-range="24h" class="on">24 ساعة</button>
+        <button data-range="7d">7 أيام</button>
+        <button data-range="30d">30 يوم</button>
+      </div>
+    </div>
+    <div class="charts">
+      <figure class="chart" id="cUp"><figcaption><span class="dot up"></span>عمليات الرفع <b id="cUpSum"></b></figcaption><div class="plot"></div></figure>
+      <figure class="chart" id="cDl"><figcaption><span class="dot dl"></span>عمليات التحميل <b id="cDlSum"></b></figcaption><div class="plot"></div></figure>
+      <figure class="chart" id="cFail"><figcaption><span class="dot fail"></span>أكواد خاطئة <b id="cFailSum"></b></figcaption><div class="plot"></div></figure>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>الإجمالي منذ بدء التتبع <span class="muted small" id="sinceText"></span></h2>
+    <dl class="totals" id="totals"></dl>
+  </section>
+
+  <section class="card">
+    <div class="row-between">
+      <h2>الملفات النشطة</h2>
+      <div class="muted small" id="filesNote"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>الكود</th><th>الاسم</th><th>الحجم</th><th>التحميلات</th><th>رُفع</th><th>يُحذف بعد</th><th></th></tr></thead>
+        <tbody id="files"></tbody>
+      </table>
+    </div>
+    <div class="muted empty hidden" id="noFiles">لا توجد ملفات نشطة حالياً.</div>
+  </section>
+</main>
+
+<div class="tip hidden" id="tip" role="tooltip"></div>
+<div class="toast hidden" id="toast"></div>
+<script src="/admin/admin.js?v=1"></script>
+</body>
+</html>
