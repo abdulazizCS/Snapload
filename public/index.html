@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css?v=2">
+<link rel="stylesheet" href="/style.css?v=3">
 </head>
 <body>
 <main>
@@ -35,9 +35,14 @@
     <div class="result hidden" id="result">
       <div class="hint">كود الملف</div>
       <div class="code" id="codeOut"></div>
+      <div class="qr-wrap">
+        <canvas id="qrCanvas" class="qr" role="img" aria-label="QR code لرابط الملف"></canvas>
+        <div class="hint">امسح الكود بالجوال لفتح رابط التحميل</div>
+      </div>
       <div class="actions">
         <button class="btn" id="copyCode">نسخ الكود</button>
         <button class="btn ghost" id="copyLink">نسخ الرابط</button>
+        <button class="btn ghost" id="saveQr">حفظ QR</button>
         <button class="btn ghost" id="another">رفع ملف آخر</button>
       </div>
       <div class="hint" id="expiryText"></div>
@@ -58,6 +63,7 @@
   <footer class="hint">تُحذف الملفات تلقائياً بعد <span id="ttl">60</span> دقيقة من آخر تحميل (أو من الرفع إن لم تُحمّل).</footer>
 </main>
 <div class="toast hidden" id="toast"></div>
-<script src="/app.js?v=2"></script>
+<script src="/vendor/qrcode.js?v=1"></script>
+<script src="/app.js?v=3"></script>
 </body>
 </html>
