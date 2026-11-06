@@ -3,6 +3,7 @@
   const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let cfg = { maxFileMb: 500, ttlMinutes: 60 };
   let currentCode = null;
+  let lastFound = null; // last code the server confirmed exists
 
   const fmtSize = (b) => {
     const u = ['بايت', 'ك.ب', 'م.ب', 'ج.ب'];
@@ -134,6 +135,7 @@
     codeIn.value = clean;
     show($('getError'), false);
     $('fileInfo').textContent = '';
+    lastFound = null;
     if (clean.length === 5) lookup(clean);
   });
 
@@ -143,6 +145,7 @@
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'خطأ');
       $('fileInfo').textContent = `📄 ${d.name} · ${fmtSize(d.size)}`;
+      lastFound = code;
       return true;
     } catch (e) {
       $('getError').textContent = e.message; show($('getError'));
@@ -156,7 +159,8 @@
     if (code.length !== 5) {
       $('getError').textContent = 'الكود يتكون من 5 خانات'; return show($('getError'));
     }
-    if (await lookup(code)) location.href = `/d/${code}`;
+    // Skip a second lookup when the code was just confirmed while typing.
+    if (code === lastFound || await lookup(code)) location.href = `/d/${code}`;
   });
 
   // Shared link: /?c=CODE

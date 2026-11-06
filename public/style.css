@@ -121,3 +121,5 @@ footer { text-align: center; margin-top: 8px; }
   background: var(--brand-amber); color: #013364; font-weight: 500;
   padding: 8px 16px; border-radius: 99px; font-size: .9rem;
 }
+.center { text-align: center; }
+.link-btn { text-decoration: none; display: inline-block; }

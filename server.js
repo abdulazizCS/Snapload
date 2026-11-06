@@ -3,210 +3,187 @@
 const express = require('express');
 const multer = require('multer');
 const crypto = require('crypto');
-const fs = require('fs');
-const fsp = fs.promises;
+const fsp = require('fs').promises;
 const path = require('path');
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, 'uploads'));
-const MAX_FILE_MB = parseInt(process.env.MAX_FILE_MB || '500', 10);
-const TTL_MS = parseFloat(process.env.TTL_MINUTES || '60') * 60 * 1000;
-const CLEANUP_INTERVAL_MS = 60 * 1000;
+const cfg = require('./lib/config');
+const store = require('./lib/storage');
+const { createLimiter } = require('./lib/rateLimit');
+const { securityHeaders, sameOrigin, DOWNLOAD_CSP } = require('./lib/security');
 
-// No 0/O/1/I/L so codes are easy to read and type.
-const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const CODE_LEN = 5;
-const CODE_RE = new RegExp(`^[${ALPHABET}]{${CODE_LEN}}$`);
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const NOT_FOUND_PAGE = path.join(PUBLIC_DIR, 'notfound.html');
+const MSG_NOT_FOUND = 'الكود غير صحيح أو انتهت صلاحية الملف';
+const MSG_TOO_MANY = 'محاولات كثيرة، حاول بعد قليل';
 
-const FILES_DIR = path.join(UPLOAD_DIR, 'files');
-const META_DIR = path.join(UPLOAD_DIR, 'meta');
-const TMP_DIR = path.join(UPLOAD_DIR, 'tmp');
-for (const d of [FILES_DIR, META_DIR, TMP_DIR]) fs.mkdirSync(d, { recursive: true });
+// Express 4 does not catch rejected promises; route them to the error handler.
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-// ---------- helpers ----------
-function randomCode() {
-  let out = '';
-  for (let i = 0; i < CODE_LEN; i++) out += ALPHABET[crypto.randomInt(ALPHABET.length)];
-  return out;
+// ---------- rate limits ----------
+const uploadLimiter = createLimiter({ limit: cfg.UPLOADS_PER_10MIN, windowMs: 10 * 60 * 1000 });
+const lookupLimiter = createLimiter({ limit: cfg.LOOKUPS_PER_MIN, windowMs: 60 * 1000 });
+// Wrong codes are what a brute-force attack produces, so they get a much
+// tighter budget than normal traffic. 31^5 ≈ 28.6M possible codes.
+const failLimiter = createLimiter({ limit: cfg.FAILED_LOOKUPS_PER_15MIN, windowMs: 15 * 60 * 1000 });
+
+function tooMany(res, limiter, key, html) {
+  res.set('Retry-After', String(limiter.retryAfter(key)));
+  if (html) return res.status(429).type('text/plain; charset=utf-8').send(MSG_TOO_MANY);
+  return res.status(429).json({ error: MSG_TOO_MANY });
 }
 
-function normalizeCode(raw) {
-  const c = String(raw || '').trim().toUpperCase();
-  return CODE_RE.test(c) ? c : null;
+// Shared by the info and download routes. Resolves to the live meta, or
+// sends the error response itself and resolves to null.
+async function findOr404(req, res, { html }) {
+  const ip = req.ip;
+  if (failLimiter.blocked(ip)) { tooMany(res, failLimiter, ip, html); return null; }
+  if (lookupLimiter.hit(ip)) { tooMany(res, lookupLimiter, ip, html); return null; }
+
+  const code = store.normalizeCode(req.params.code);
+  const meta = code && (await store.getLive(code));
+  if (meta) return { code, meta };
+
+  failLimiter.hit(ip);
+  if (html) res.status(404).sendFile(NOT_FOUND_PAGE);
+  else res.status(404).json({ error: MSG_NOT_FOUND });
+  return null;
 }
-
-const metaPath = (code) => path.join(META_DIR, `${code}.json`);
-const filePath = (code) => path.join(FILES_DIR, code);
-
-async function readMeta(code) {
-  try {
-    return JSON.parse(await fsp.readFile(metaPath(code), 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-async function writeMeta(code, meta) {
-  const tmp = metaPath(code) + '.tmp';
-  await fsp.writeFile(tmp, JSON.stringify(meta));
-  await fsp.rename(tmp, metaPath(code));
-}
-
-async function removeEntry(code) {
-  await Promise.allSettled([fsp.unlink(filePath(code)), fsp.unlink(metaPath(code))]);
-}
-
-const isExpired = (meta) => Date.now() > meta.expiresAt;
-
-// Reserve a code atomically by creating its meta file exclusively.
-async function reserveCode() {
-  for (let i = 0; i < 20; i++) {
-    const code = randomCode();
-    try {
-      await fsp.writeFile(metaPath(code), '{}', { flag: 'wx' });
-      return code;
-    } catch (e) {
-      if (e.code !== 'EEXIST') throw e;
-    }
-  }
-  throw new Error('Could not allocate a code');
-}
-
-// ---------- simple per-IP rate limit for code lookups (anti brute force) ----------
-const hits = new Map();
-function rateLimit(limit, windowMs) {
-  return (req, res, next) => {
-    const now = Date.now();
-    const key = req.ip;
-    let h = hits.get(key);
-    if (!h || now > h.reset) h = { n: 0, reset: now + windowMs };
-    h.n++;
-    hits.set(key, h);
-    if (h.n > limit) return res.status(429).json({ error: 'محاولات كثيرة، حاول بعد قليل' });
-    next();
-  };
-}
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, h] of hits) if (now > h.reset) hits.delete(k);
-}, 5 * 60 * 1000).unref();
 
 // ---------- app ----------
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', cfg.TRUST_PROXY);
 app.disable('x-powered-by');
+app.use(securityHeaders);
+app.use('/api', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: TMP_DIR,
+    destination: store.TMP_DIR,
     filename: (_req, _file, cb) => cb(null, crypto.randomBytes(16).toString('hex')),
   }),
-  limits: { fileSize: MAX_FILE_MB * 1024 * 1024, files: 1 },
+  limits: {
+    fileSize: cfg.MAX_FILE_BYTES,
+    files: 1,
+    fields: 5,
+    fieldSize: 1024,
+    parts: 6,
+    headerPairs: 50,
+  },
 });
 
 app.get('/healthz', (_req, res) => res.send('ok'));
 
 app.get('/api/config', (_req, res) => {
-  res.json({ maxFileMb: MAX_FILE_MB, ttlMinutes: TTL_MS / 60000, codeLength: CODE_LEN });
+  res.json({ maxFileMb: cfg.MAX_FILE_MB, ttlMinutes: cfg.TTL_MS / 60000, codeLength: cfg.CODE_LEN });
 });
 
-app.post('/api/upload', rateLimit(30, 60 * 1000), (req, res) => {
-  upload.single('file')(req, res, async (err) => {
-    if (err) {
-      const msg = err.code === 'LIMIT_FILE_SIZE' ? `الحد الأقصى لحجم الملف ${MAX_FILE_MB} ميجابايت` : 'فشل الرفع';
-      return res.status(400).json({ error: msg });
-    }
-    if (!req.file) return res.status(400).json({ error: 'لم يتم اختيار ملف' });
+app.post('/api/upload', sameOrigin, wrap(async (req, res) => {
+  const ip = req.ip;
+  if (uploadLimiter.hit(ip)) return tooMany(res, uploadLimiter, ip, false);
 
-    let code;
-    try {
-      code = await reserveCode();
-      await fsp.rename(req.file.path, filePath(code));
-      // multer decodes the name as latin1; restore UTF-8 (Arabic names etc.)
-      const name = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
-      const now = Date.now();
-      const meta = {
-        name,
-        size: req.file.size,
-        type: req.file.mimetype || 'application/octet-stream',
-        createdAt: now,
-        expiresAt: now + TTL_MS,
-        downloads: 0,
-      };
-      await writeMeta(code, meta);
-      res.json({ code, name, size: meta.size, expiresAt: meta.expiresAt });
-    } catch (e) {
-      console.error(e);
-      if (req.file) fsp.unlink(req.file.path).catch(() => {});
-      if (code) removeEntry(code);
-      res.status(500).json({ error: 'خطأ في الخادم' });
-    }
-  });
-});
-
-// Look up info without downloading
-app.get('/api/file/:code', rateLimit(60, 60 * 1000), async (req, res) => {
-  const code = normalizeCode(req.params.code);
-  const meta = code && (await readMeta(code));
-  if (!meta || !meta.name || isExpired(meta)) {
-    if (meta && meta.name) removeEntry(code);
-    return res.status(404).json({ error: 'الكود غير صحيح أو انتهت صلاحية الملف' });
+  // Refuse oversized or unsized bodies before reading a single byte.
+  const len = parseInt(req.get('content-length'), 10);
+  if (!Number.isFinite(len)) return res.status(411).json({ error: 'حجم الطلب غير معروف' });
+  if (len > cfg.MAX_FILE_BYTES + 64 * 1024) {
+    return res.status(413).json({ error: `الحد الأقصى لحجم الملف ${cfg.MAX_FILE_MB} ميجابايت` });
   }
-  res.json({ code, name: meta.name, size: meta.size, expiresAt: meta.expiresAt });
-});
 
-// Download. Each download resets the 1-hour inactivity timer.
-app.get('/d/:code', rateLimit(60, 60 * 1000), async (req, res) => {
-  const code = normalizeCode(req.params.code);
-  const meta = code && (await readMeta(code));
-  if (!meta || !meta.name || isExpired(meta)) {
-    if (meta && meta.name) removeEntry(code);
-    return res.status(404).sendFile(path.join(__dirname, 'public', 'notfound.html'));
+  const release = await store.reserveSpace(len);
+  if (!release) return res.status(507).json({ error: 'الخادم ممتلئ حالياً، حاول لاحقاً' });
+  res.on('close', release);
+
+  upload.single('file')(req, res, (err) => handleUpload(err, req, res).catch((e) => {
+    console.error('upload failed', e);
+    if (!res.headersSent) res.status(500).json({ error: 'خطأ في الخادم' });
+  }).finally(release));
+}));
+
+async function handleUpload(err, req, res) {
+  if (err) {
+    const msg = err.code === 'LIMIT_FILE_SIZE'
+      ? `الحد الأقصى لحجم الملف ${cfg.MAX_FILE_MB} ميجابايت`
+      : 'فشل الرفع';
+    return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: msg });
   }
-  meta.downloads += 1;
-  meta.lastDownloadAt = Date.now();
-  meta.expiresAt = Date.now() + TTL_MS;
-  await writeMeta(code, meta).catch(() => {});
-  res.download(filePath(code), meta.name, {
-    headers: { 'Content-Type': meta.type, 'Cache-Control': 'no-store' },
-  });
-});
+  if (!req.file) return res.status(400).json({ error: 'لم يتم اختيار ملف' });
 
-app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
-
-// ---------- cleanup ----------
-async function cleanup() {
+  let code;
   try {
+    code = await store.reserveCode();
+    await fsp.rename(req.file.path, store.filePath(code));
+    // multer decodes the name as latin1; restore UTF-8 (Arabic names etc.)
+    const name = store.sanitizeName(Buffer.from(req.file.originalname, 'latin1').toString('utf8'));
     const now = Date.now();
-    for (const f of await fsp.readdir(META_DIR)) {
-      if (!f.endsWith('.json')) continue;
-      const code = f.slice(0, -5);
-      const meta = await readMeta(code);
-      if (!meta) continue;
-      // Empty "{}" = a reservation; drop it if stale (> 1 day).
-      if (!meta.name) {
-        const st = await fsp.stat(metaPath(code)).catch(() => null);
-        if (st && now - st.mtimeMs > 24 * 3600 * 1000) await removeEntry(code);
-        continue;
-      }
-      if (now > meta.expiresAt) await removeEntry(code);
-    }
-    // Orphan files (no meta) and stale temp uploads
-    for (const f of await fsp.readdir(FILES_DIR)) {
-      try { await fsp.access(metaPath(f)); } catch { await fsp.unlink(path.join(FILES_DIR, f)).catch(() => {}); }
-    }
-    for (const f of await fsp.readdir(TMP_DIR)) {
-      const p = path.join(TMP_DIR, f);
-      const st = await fsp.stat(p).catch(() => null);
-      if (st && now - st.mtimeMs > 6 * 3600 * 1000) await fsp.unlink(p).catch(() => {});
-    }
+    const meta = { name, size: req.file.size, createdAt: now, expiresAt: now + cfg.TTL_MS, downloads: 0 };
+    await store.writeMeta(code, meta);
+    store.addUsed(meta.size);
+    res.json({ code, name, size: meta.size, expiresAt: meta.expiresAt });
   } catch (e) {
-    console.error('cleanup error', e);
+    console.error('upload failed', e);
+    fsp.unlink(req.file.path).catch(() => {});
+    if (code) await store.removeEntry(code);
+    res.status(500).json({ error: 'خطأ في الخادم' });
   }
 }
-cleanup();
-setInterval(cleanup, CLEANUP_INTERVAL_MS).unref();
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Snapload listening on 0.0.0.0:${PORT}, storage at ${UPLOAD_DIR}`);
+// Look up info without downloading
+app.get('/api/file/:code', wrap(async (req, res) => {
+  const found = await findOr404(req, res, { html: false });
+  if (!found) return;
+  const { code, meta } = found;
+  res.json({ code, name: meta.name, size: meta.size, expiresAt: meta.expiresAt });
+}));
+
+// Download. Each download resets the inactivity timer.
+app.get('/d/:code', wrap(async (req, res) => {
+  const found = await findOr404(req, res, { html: true });
+  if (!found) return;
+  const { code, meta } = found;
+  meta.downloads += 1;
+  meta.lastDownloadAt = Date.now();
+  meta.expiresAt = Date.now() + cfg.TTL_MS;
+  await store.writeMeta(code, meta).catch(() => {});
+  // Always an opaque attachment: an uploaded .html/.svg must never render
+  // (and run script) on this site's origin.
+  res.download(store.filePath(code), meta.name, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Security-Policy': DOWNLOAD_CSP,
+      'Cache-Control': 'no-store',
+      'X-Robots-Tag': 'noindex',
+    },
+  });
+}));
+
+app.use(express.static(PUBLIC_DIR, { extensions: ['html'], index: 'index.html' }));
+
+app.use((_req, res) => res.status(404).sendFile(NOT_FOUND_PAGE));
+
+// Never leak stack traces or internals to the client.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  if (err && err.code !== 'ENOENT') console.error(err);
+  if (res.headersSent) return res.destroy();
+  if (err && (err.code === 'ENOENT' || err.status === 404)) {
+    return req.path.startsWith('/api/')
+      ? res.status(404).json({ error: MSG_NOT_FOUND })
+      : res.status(404).sendFile(NOT_FOUND_PAGE);
+  }
+  const status = err && err.status >= 400 && err.status < 500 ? err.status : 500;
+  if (req.path.startsWith('/api/')) return res.status(status).json({ error: 'خطأ في الخادم' });
+  res.status(status).type('text/plain; charset=utf-8').send('خطأ في الخادم');
 });
+
+// ---------- start ----------
+store.cleanup();
+setInterval(store.cleanup, cfg.CLEANUP_INTERVAL_MS).unref();
+
+const server = app.listen(cfg.PORT, '0.0.0.0', () => {
+  console.log(`Snapload listening on 0.0.0.0:${cfg.PORT}, storage at ${cfg.UPLOAD_DIR}`);
+});
+// Drop connections that dribble headers to tie up sockets (slowloris).
+server.headersTimeout = 20 * 1000;
+// Large uploads on slow links need time; cap a single request at 1 hour.
+server.requestTimeout = 60 * 60 * 1000;
+
+process.on('unhandledRejection', (e) => console.error('unhandledRejection', e));
