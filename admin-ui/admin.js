@@ -11,6 +11,9 @@
   let data = null;
   let range = '24h';
   let timer = null;
+  let jdata = null;
+  let jFilter = 'all';
+  let jShown = 100;
 
   // ---------- formatting ----------
   const nf = new Intl.NumberFormat('ar-EG-u-nu-latn');
@@ -68,7 +71,7 @@
 
   async function load() {
     try {
-      data = await api('GET', '/api/admin/stats');
+      [data, jdata] = await Promise.all([api('GET', '/api/admin/stats'), api('GET', '/api/admin/journal')]);
     } catch (e) {
       if (e.message !== 'auth' && e.message !== 'rate') $('updated').textContent = 'تعذّر التحديث، سيُعاد المحاولة';
       return;
@@ -173,6 +176,7 @@
     renderCharts();
     renderTotals();
     renderFiles();
+    renderJournal();
   }
 
   function renderTotals() {
@@ -237,6 +241,123 @@
       if (e.message !== 'auth' && e.message !== 'rate') toast(e.message);
     }
   }
+
+  // ---------- operations journal ----------
+  const REASONS = {
+    rate_limited: 'تجاوز حد المحاولات',
+    too_large: 'الملف أكبر من الحد',
+    storage_full: 'المساحة ممتلئة',
+    aborted: 'انقطع الاتصال أثناء الرفع',
+    no_file: 'بدون ملف',
+    no_length: 'حجم غير معروف',
+    bad_request: 'طلب غير صالح',
+    server_error: 'خطأ في الخادم',
+  };
+  const fmtMs = (ms) => (ms == null ? '–' : ms < 1000 ? `${Math.round(ms)} م.ث` : ms < 60000 ? `${(ms / 1000).toFixed(1)} ث` : fmtLeft(ms));
+  const fmtSpeed = (bps) => (bps == null ? '–' : `${fmtSize(bps)}/ث`);
+  const speedOf = (x) => (x.uploadMs > 0 && x.size >= 64 * 1024 ? x.size / (x.uploadMs / 1000) : null);
+
+  function statusOf(x) {
+    if (!x.deletedAt) return ['نشط', 'ok'];
+    if (x.deleteReason === 'admin') return [`حذفه المشرف ${fmtDateTime(x.deletedAt)}`, 'admin'];
+    return [`حُذف تلقائياً ${fmtDateTime(x.deletedAt)}`, 'gone'];
+  }
+
+  function journalRows() {
+    const q = $('jSearch').value.trim().toLowerCase();
+    if (jFilter === 'failed') {
+      return jdata.failures.filter((f) => !q || (REASONS[f.reason] || f.reason).includes(q) || f.ip.includes(q));
+    }
+    return jdata.records.filter((x) => {
+      if (jFilter === 'active' && x.deletedAt) return false;
+      if (jFilter === 'deleted' && !x.deletedAt) return false;
+      return !q || x.code.toLowerCase().includes(q) || x.name.toLowerCase().includes(q) || x.ip.includes(q);
+    });
+  }
+
+  const cell = (text, cls) => { const c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; return c; };
+  const headRow = (cols) => {
+    const tr = document.createElement('tr');
+    tr.append(...cols.map((c) => { const th = document.createElement('th'); th.textContent = c; return th; }));
+    return tr;
+  };
+
+  function renderJournal() {
+    if (!jdata) return;
+    const p = jdata.perf;
+    $('jSince').textContent = jdata.firstAt ? `(منذ ${fmtDate(jdata.firstAt)})` : '';
+    $('jRetention').textContent = p.retentionDays ? `${fmtN(p.retentionDays)} يوماً` : 'دائماً';
+    $('pSuccess').textContent = p.successRate == null ? '–' : `${(p.successRate * 100).toFixed(p.successRate === 1 ? 0 : 1)}%`;
+    $('pSuccessSub').textContent = `${fmtN(p.uploads)} ناجح · ${fmtN(p.failedUploads)} فشل`;
+    $('pUpMs').textContent = fmtMs(p.medianUploadMs);
+    $('pSpeed').textContent = fmtSpeed(p.medianSpeedBps);
+    $('pDl').textContent = fmtN(p.downloadsCompleted);
+    $('pDlSub').textContent = `${fmtN(p.downloadsAborted)} منقطع · وسيط ${fmtMs(p.medianDownloadMs)}`;
+    $('pNever').textContent = fmtN(p.neverDownloaded);
+
+    const rows = journalRows();
+    const failed = jFilter === 'failed';
+    $('jHead').replaceChildren(headRow(failed
+      ? ['الوقت', 'السبب', 'الحجم', 'المدة', 'IP']
+      : ['الوقت', 'الكود', 'الاسم', 'الحجم', 'مدة الرفع', 'السرعة', 'التحميلات', 'الحالة', 'IP']));
+    const shown = rows.slice(0, jShown);
+    $('jBody').replaceChildren(...shown.map((x) => {
+      const tr = document.createElement('tr');
+      if (failed) {
+        const reason = document.createElement('td');
+        const b = document.createElement('span'); b.className = 'badge fail'; b.textContent = REASONS[x.reason] || x.reason;
+        reason.append(b);
+        tr.append(cell(fmtDateTime(x.t), 'num'), reason, cell(x.size ? fmtSize(x.size) : '–', 'num'), cell(fmtMs(x.ms), 'num'), cell(x.ip, 'ip'));
+        return tr;
+      }
+      const name = cell(x.name, 'name'); name.title = x.name;
+      const [label, cls] = statusOf(x);
+      const st = document.createElement('td');
+      const b = document.createElement('span'); b.className = `badge ${cls}`; b.textContent = label;
+      st.append(b);
+      const dls = x.abortedDownloads ? `${fmtN(x.downloads)} (+${fmtN(x.abortedDownloads)} منقطع)` : fmtN(x.downloads);
+      tr.append(
+        cell(fmtDateTime(x.uploadedAt), 'num'), cell(x.code, 'code'), name, cell(fmtSize(x.size), 'num'),
+        cell(fmtMs(x.uploadMs), 'num'), cell(fmtSpeed(speedOf(x)), 'num'), cell(dls, 'num'), st, cell(x.ip, 'ip'),
+      );
+      return tr;
+    }));
+    show($('jEmpty'), rows.length === 0);
+    show($('jMore'), rows.length > shown.length);
+    $('jMore').textContent = `عرض المزيد (${fmtN(rows.length - shown.length)} متبقٍ)`;
+  }
+
+  $('jFilter').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    jFilter = b.dataset.f; jShown = 100;
+    $('jFilter').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    renderJournal();
+  }));
+  $('jSearch').addEventListener('input', () => { jShown = 100; renderJournal(); });
+  $('jMore').addEventListener('click', () => { jShown += 200; renderJournal(); });
+
+  // CSV of the current filter (all rows, not only the ones shown). BOM so Excel reads Arabic.
+  $('exportCsv').addEventListener('click', () => {
+    if (!jdata) return;
+    const iso = (t) => (t ? new Date(t).toISOString() : '');
+    const failed = jFilter === 'failed';
+    const head = failed
+      ? ['time', 'reason', 'size_bytes', 'duration_ms', 'ip']
+      : ['uploaded_at', 'code', 'name', 'size_bytes', 'upload_ms', 'downloads', 'aborted_downloads', 'last_download_at', 'deleted_at', 'delete_reason', 'ip'];
+    const rows = journalRows().map((x) => (failed
+      ? [iso(x.t), x.reason, x.size, x.ms, x.ip]
+      : [iso(x.uploadedAt), x.code, x.name, x.size, x.uploadMs, x.downloads, x.abortedDownloads, iso(x.lastDownloadAt), iso(x.deletedAt), x.deleteReason || '', x.ip]));
+    const esc = (v) => {
+      let s = String(v ?? '');
+      if (/^[=+\-@]/.test(s)) s = `'${s}`; // no spreadsheet formulas from file names
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = '\ufeff' + [head, ...rows].map((r) => r.map(esc).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `snapload-${failed ? 'failures' : 'uploads'}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
 
   // ---------- charts (plain SVG, one series each) ----------
   function renderCharts() {
