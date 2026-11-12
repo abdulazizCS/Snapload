@@ -5,690 +5,94 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#013364">
 <title>المنتجات الرقمية حسب المستفيدين</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-/* Layout: one-screen kiosk. Top bar (forum identity) · stage = beneficiary rail + services grid that is sized
-   by script to fill the remaining height · service details open in a modal with two QR codes. Single dark forum look. */
-:root{
-  --navy:#013364; --deep:#041c39; --blue:#0166aa; --green:#2bb673; --gold:#ffbd59;
-  --white:#f7fbff; --soft:#bbd6e7; --muted:#8fb2cb; --line:rgba(183,221,244,.2);
-  --panel:rgba(7,43,81,.86); --card:linear-gradient(157deg,#124876,#082d54); --ink:#062744;
-  --ok:#7ff0b8; --qr-ink:#013364; --qr-paper:#ffffff;
-  --font:'IBM Plex Sans Arabic',Tahoma,'Segoe UI',Arial,sans-serif;
-  --ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);
-  --shadow:0 16px 45px rgba(0,9,32,.38);
-  --gut:max(16px,env(safe-area-inset-left,0px)); --gut-r:max(16px,env(safe-area-inset-right,0px));
-  color-scheme:dark;
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{font-size:clamp(14px,calc(.62vw + .85vh),24px)}
-html,body{height:100%;margin:0;overflow:hidden;background:#041d3b;color:var(--white)}
-body{font-family:var(--font);overscroll-behavior:none;-webkit-user-select:none;user-select:none}
-button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
-h1,h2,h3,h4,p{margin:0}
-:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
-
-#app{
-  position:fixed;inset:0;isolation:isolate;display:flex;flex-direction:column;overflow:hidden;
-  font-size:1rem;line-height:1.6;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
-  background:
-    radial-gradient(circle at 12% 14%,rgba(43,182,115,.15),transparent 28%),
-    radial-gradient(circle at 88% 90%,rgba(1,102,170,.4),transparent 38%),
-    linear-gradient(135deg,#041c39,#013364 60%,#041d3b);
-}
-#app::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
-  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px}
-.shell{width:100%;max-width:94rem;margin-inline:auto;padding-left:var(--gut);padding-right:var(--gut-r)}
-
-/* ambient */
-.bg-fx{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
-.bg-fx b{position:absolute;width:38rem;height:38rem;border-radius:50%;background:radial-gradient(circle,rgba(43,182,115,.15),transparent 65%);top:-14rem;inset-inline-start:-11rem;animation:orb 24s ease-in-out infinite alternate}
-.bg-fx b.b2{top:auto;bottom:-17rem;inset-inline-start:auto;inset-inline-end:-12rem;background:radial-gradient(circle,rgba(255,189,89,.09),transparent 62%);animation-duration:30s}
-.bg-fx i{position:absolute;bottom:-5rem;left:var(--x);width:var(--s);height:var(--s);border-radius:28%;border:1.5px solid rgba(43,182,115,var(--o));background:linear-gradient(135deg,rgba(36,90,122,.14),transparent);animation:drift var(--d) linear infinite;animation-delay:var(--dl)}
-@keyframes orb{to{transform:translate(-6rem,8rem) scale(1.15)}}
-@keyframes drift{0%{opacity:0;transform:translateY(0) rotate(0)}10%,85%{opacity:1}100%{opacity:0;transform:translateY(-120vmax) rotate(160deg)}}
-
-/* ===== Top bar ===== */
-.topbar{flex:none;position:relative;z-index:5}
-.topbar .shell{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding-block:.6rem}
-.topbar .shell::after{content:"";position:absolute;inset:auto 0 0;height:1px;background:var(--line)}
-.brand{display:flex;align-items:center;gap:.75rem;min-width:0;flex:1}
-.brand img{width:2.9rem;height:2.9rem;flex:none;filter:drop-shadow(0 2px 6px rgba(0,10,30,.35))}
-.brand b{display:block;font-size:1.12rem;line-height:1.3}
-.brand small{display:block;font-size:.78rem;color:#ecf7ff;opacity:.8;line-height:1.4}
-.toolbar{display:flex;gap:.5rem;flex:none}
-.tool{display:inline-flex;align-items:center;gap:.4rem;min-height:44px;min-width:44px;padding:.4rem .9rem;border-radius:.8rem;background:rgba(255,255,255,.08);border:1px solid var(--line);font-size:.86rem;font-weight:600;white-space:nowrap;transition:background .2s,transform .15s}
-.tool:hover{background:rgba(255,255,255,.16)}
-.tool:active{transform:scale(.95)}
-.tool.primary{border-color:rgba(43,182,115,.5);background:rgba(43,182,115,.14)}
-.tool svg{width:1.1rem;height:1.1rem}
-
-/* ===== Stage ===== */
-.stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(14rem,17.5rem) minmax(0,1fr);gap:1rem;padding-block:.9rem .5rem}
-.glass{background:var(--panel);border:1px solid var(--line);border-radius:1.4rem;box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-
-/* rail */
-.rail{min-height:0;display:flex;flex-direction:column;gap:.7rem;padding:.9rem}
-.r-head b{display:block;font-size:1.2rem;line-height:1.35}
-.r-head small{display:block;font-size:.8rem;color:var(--soft);line-height:1.5}
-.r-list{flex:1;min-height:0;display:flex;flex-direction:column;gap:.45rem}
-.pb{flex:1 1 0;min-height:2.6rem;max-height:4.4rem;display:flex;align-items:center;gap:.65rem;padding:.35rem .7rem;border-radius:1rem;text-align:start;
-  background:rgba(255,255,255,.05);border:1.5px solid var(--line);font-weight:600;font-size:.95rem;transition:background .2s,border-color .2s,transform .25s var(--spring)}
-.pb:hover{background:rgba(255,255,255,.1);border-color:rgba(255,189,89,.45)}
-.pb:active{transform:scale(.97)}
-.pb .pi{flex:none;width:2.2rem;height:2.2rem;border-radius:.75rem;display:grid;place-items:center;font-size:1.2rem;line-height:1;background:rgba(255,255,255,.07)}
-.pb .pl{flex:1;min-width:0;line-height:1.35}
-.pb .pc{flex:none;min-width:2rem;padding:.05rem .5rem;border-radius:99px;text-align:center;font-size:.82rem;font-weight:700;background:rgba(255,255,255,.1);font-variant-numeric:tabular-nums}
-.pb[aria-pressed="true"]{background:linear-gradient(135deg,#1f9a63,#137067);border-color:transparent;box-shadow:0 8px 24px rgba(31,154,99,.35);transform:translateX(calc(var(--dirx,-1) * .3rem))}
-.pb[aria-pressed="true"] .pi{background:rgba(255,255,255,.18)}
-.pb[aria-pressed="true"] .pc{background:var(--gold);color:var(--ink)}
-#app[dir="ltr"]{--dirx:1}
-
-/* panel */
-.panel{min-width:0;min-height:0;display:flex;flex-direction:column;gap:.75rem;padding:.9rem}
-.p-head{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:.4rem 1rem;flex-wrap:wrap}
-.kicker{display:inline-flex;align-items:center;gap:.45rem;font-size:.78rem;color:#b1efd2;font-weight:600}
-.kicker .dot{position:relative;width:.5rem;height:.5rem;border-radius:50%;background:var(--green)}
-.kicker .dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--green);animation:ring 1.8s ease-out infinite}
-@keyframes ring{0%{transform:scale(1);opacity:.55}80%,100%{transform:scale(3);opacity:0}}
-.p-head h1{font-size:1.55rem;line-height:1.35;margin-top:.1rem}
-.p-head h1 .grad{background:linear-gradient(90deg,#b0f2d0,#ffda9d,#b0f2d0);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;animation:grad 6s linear infinite}
-@keyframes grad{to{background-position:200% center}}
-.p-meta{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}
-.chip{display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .7rem;border-radius:99px;font-size:.8rem;background:rgba(255,255,255,.06);border:1px solid var(--line);white-space:nowrap}
-.chip b{font-variant-numeric:tabular-nums;color:var(--gold)}
-.chip .sw{width:.7rem;height:.7rem;border-radius:.25rem;background:var(--green)}
-.chip .sw.g{background:transparent;border:1.5px dashed var(--soft)}
-.chip.hint{border-style:dashed;color:var(--soft)}
-
-/* services grid */
-.grid{flex:1;min-height:0;display:grid;gap:.7rem;grid-template-columns:repeat(var(--c,6),minmax(0,1fr));grid-template-rows:repeat(var(--r,4),minmax(0,1fr));font-size:calc(1rem * var(--k,1))}
-.grid.scroll{grid-template-rows:none;grid-auto-rows:minmax(7.6rem,auto);overflow-y:auto;overscroll-behavior:contain;padding-inline-end:.2rem;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent}
-.tile{position:relative;overflow:hidden;min-width:0;min-height:0;display:flex;flex-direction:column;gap:.45em;padding:.8em .85em;border-radius:1.1em;text-align:start;
-  background:var(--card);border:1px solid var(--line);box-shadow:0 10px 26px rgba(0,8,30,.28);transition:transform .3s var(--spring),border-color .2s,box-shadow .3s}
-.tile::after{content:"";position:absolute;inset-inline-end:-3.5em;top:-3.8em;width:8em;height:8em;border-radius:50%;background:var(--gc);opacity:.12;filter:blur(6px);pointer-events:none;transition:transform .5s var(--ease),opacity .3s}
-.tile:hover{transform:translateY(-4px);border-color:var(--gc);box-shadow:0 18px 36px rgba(0,8,30,.42),0 0 26px color-mix(in srgb,var(--gc) 22%,transparent)}
-.tile:hover::after{transform:scale(1.45);opacity:.2}
-.tile:active{transform:scale(.97)}
-.tile.gen{background:linear-gradient(157deg,rgba(18,72,118,.62),rgba(8,45,84,.62));border-style:dashed;border-color:rgba(183,221,244,.32)}
-.t-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.5em}
-.t-ico{flex:none;width:2.45em;height:2.45em;border-radius:.8em;display:grid;place-items:center;font-size:1.05em;background:color-mix(in srgb,var(--gc) 17%,transparent);border:1px solid color-mix(in srgb,var(--gc) 38%,transparent)}
-.t-ico span{font-size:1.3em;line-height:1}
-.t-type{font-size:.74em;font-weight:700;padding:.12em .7em;border-radius:99px;background:rgba(255,255,255,.08);border:1px solid var(--line);white-space:nowrap}
-.t-type.p{background:rgba(138,206,255,.12);border-color:rgba(138,206,255,.4)}
-.t-type.s{background:rgba(255,189,89,.12);border-color:rgba(255,189,89,.45)}
-.t-name{flex:none;font-size:1.06em;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:balance}
-.t-foot{flex:none;margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:.4em;font-size:.76em;color:var(--soft);min-width:0}
-.t-tag{display:inline-flex;align-items:center;gap:.35em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.t-tag.d{color:var(--ok);font-weight:700}
-.t-go{flex:none;font-weight:700;color:var(--white);opacity:.75;transition:transform .25s var(--ease),opacity .2s}
-.tile:hover .t-go{opacity:1;transform:translateX(calc(var(--dirx,-1) * .3em))}
-.grid.enter .tile{animation:popIn .5s var(--spring) backwards;animation-delay:calc(var(--i,0) * 28ms)}
-@keyframes popIn{from{opacity:0;transform:translateY(14px) scale(.92)}}
-
-.foot{flex:none;font-size:.72rem;color:#aacbe0;text-align:center;padding-block:.15rem .55rem}
-
-/* ===== Modal ===== */
-.m-ov{position:fixed;inset:0;z-index:50;display:grid;place-items:center;
-  padding:max(2vh,env(safe-area-inset-top,0px)) max(2vw,env(safe-area-inset-right,0px)) max(2vh,env(safe-area-inset-bottom,0px)) max(2vw,env(safe-area-inset-left,0px));
-  background:rgba(1,12,30,.68);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
-.m-ov.open{opacity:1;visibility:visible;transition:opacity .3s}
-.modal{--gc:#4fb3ff;width:min(76rem,100%);max-height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;border-radius:1.6rem;
-  background:linear-gradient(160deg,#0e3c69,#062a4e 70%);border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,6,22,.6);
-  transform:translateY(18px) scale(.97);transition:transform .4s var(--spring)}
-.m-ov.open .modal{transform:none}
-.modal::before{content:"";position:absolute;width:24rem;height:24rem;border-radius:50%;inset-inline-end:-9rem;top:-12rem;background:radial-gradient(circle,var(--gc),transparent 68%);opacity:.16;pointer-events:none}
-.modal{position:relative}
-.m-head{position:relative;display:flex;align-items:center;gap:.9rem;padding:1.1rem 1.3rem .9rem;border-bottom:1px solid var(--line)}
-.m-ico{flex:none;width:3.6rem;height:3.6rem;border-radius:1.1rem;display:grid;place-items:center;font-size:1.9rem;line-height:1;background:color-mix(in srgb,var(--gc) 18%,transparent);border:1px solid color-mix(in srgb,var(--gc) 45%,transparent)}
-.m-tt{flex:1;min-width:0}
-.m-tags{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.25rem}
-.m-tags span{font-size:.74rem;font-weight:700;padding:.08rem .65rem;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.07)}
-.m-tags .grp{background:color-mix(in srgb,var(--gc) 16%,transparent);border-color:color-mix(in srgb,var(--gc) 45%,transparent)}
-.m-tt h2{font-size:1.45rem;line-height:1.35;text-wrap:balance}
-.m-tt .alt{font-size:.82rem;color:var(--muted);line-height:1.4;margin-top:.1rem}
-.x{flex:none;width:3rem;height:3rem;border-radius:.9rem;border:1px solid var(--line);background:rgba(255,255,255,.08);font-size:1.1rem;transition:background .2s,transform .3s var(--spring)}
-.x:hover{background:rgba(255,255,255,.16);transform:rotate(90deg)}
-
-.m-body{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1.2rem;padding:1.1rem 1.3rem}
-.m-info{min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:.75rem;padding-inline-end:.3rem;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.25) transparent;-webkit-user-select:text;user-select:text}
-.m-info h3{font-size:.8rem;font-weight:700;color:var(--muted);margin-bottom:.25rem}
-.m-info p{font-size:1rem;line-height:1.95;color:#e6f2fb}
-.feats{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem .9rem}
-.feats li{display:flex;gap:.5rem;align-items:flex-start;font-size:.92rem;line-height:1.6}
-.feats li::before{content:"✓";flex:none;width:1.25rem;height:1.25rem;margin-top:.15rem;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:700;color:var(--ok);background:rgba(127,240,184,.14)}
-.serves{display:flex;flex-wrap:wrap;gap:.4rem}
-.serves span{display:inline-flex;align-items:center;gap:.35rem;font-size:.84rem;padding:.15rem .7rem;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
-.serves span.on{background:rgba(255,189,89,.2);border-color:rgba(255,189,89,.6);font-weight:700}
-.serves span.all{border-style:dashed}
-
-.m-qr{min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:.7rem;--qs:clamp(6.5rem,18vh,13rem)}
-.qr-card{display:flex;flex-direction:column;align-items:center;gap:.45rem;padding:.75rem .9rem .7rem;border-radius:1.2rem;background:rgba(255,255,255,.06);border:1px solid var(--line);width:calc(var(--qs) + 1.8rem)}
-.qr-lbl{display:flex;align-items:center;gap:.4rem;font-weight:700;font-size:.92rem}
-.qr-box{width:var(--qs);height:var(--qs);border-radius:.9rem;background:var(--qr-paper);padding:.55rem;display:grid;place-items:center;box-shadow:0 8px 22px rgba(0,8,30,.35)}
-.qr-box svg{width:100%;height:100%;display:block}
-.qr-box.pending{background:rgba(255,255,255,.04);border:2px dashed rgba(183,221,244,.4);box-shadow:none;text-align:center;align-content:center;gap:.3rem;color:var(--soft);font-size:.82rem;line-height:1.5;padding:.8rem}
-.qr-box.pending i{font-style:normal;font-size:1.8rem;line-height:1}
-.qr-card small{font-size:.74rem;color:var(--soft);text-align:center;line-height:1.45}
-.qr-url{font-size:.7rem;color:var(--muted);direction:ltr;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;-webkit-user-select:text;user-select:text}
-
-.m-foot{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.7rem 1.3rem;border-top:1px solid var(--line);background:rgba(2,24,48,.45)}
-.m-foot button{min-height:44px;padding:.35rem 1.1rem;border-radius:.85rem;border:1px solid var(--line);background:rgba(255,255,255,.08);font-weight:700;font-size:.9rem;transition:background .2s,transform .15s}
-.m-foot button:hover{background:rgba(255,255,255,.16)}
-.m-foot button:active{transform:scale(.95)}
-.m-foot span{font-size:.85rem;color:var(--soft);font-variant-numeric:tabular-nums}
-.m-swap{animation:swap .35s var(--ease)}
-@keyframes swap{from{opacity:.2;transform:translateY(8px)}}
-
-/* ===== Portrait screens & phones ===== */
-@media (max-aspect-ratio:1/1),(max-width:760px){
-  .stage{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-  .rail{padding:.7rem}
-  .r-head{display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
-  .r-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem}
-  .pb{flex-direction:column;justify-content:center;gap:.2rem;max-height:none;min-height:3.9rem;padding:.4rem .3rem;text-align:center;font-size:.8rem}
-  .pb .pi{width:1.8rem;height:1.8rem;font-size:1rem}
-  .pb .pl{line-height:1.25}
-  .pb .pc{position:absolute;top:.25rem;inset-inline-end:.25rem;min-width:1.5rem;font-size:.68rem;padding:0 .35rem}
-  .pb{position:relative}
-  .pb[aria-pressed="true"]{transform:none}
-}
-@media (max-width:760px){
-  .brand small{display:none}
-  .tool .tl{display:none}
-  .m-body{display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain}
-  .m-info{flex:none;min-height:auto;overflow:visible;padding-inline-end:0}
-  .m-qr{flex:none;overflow:visible;flex-direction:row;justify-content:center;--qs:min(8.5rem,34vw)}
-  .feats{grid-template-columns:minmax(0,1fr)}
-  .m-head{padding:.9rem 1rem .8rem}.m-body{padding:.9rem 1rem}.m-foot{padding:.6rem 1rem}
-  .m-tt h2{font-size:1.2rem}.m-ico{width:3rem;height:3rem;font-size:1.5rem}
-}
-@media (max-width:380px){.m-qr{--qs:min(7rem,32vw)}.qr-card{padding:.6rem .5rem}}
-
-@media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .bg-fx{display:none}
-}
-</style>
+<style>:root{--navy:#013364; --deep:#041c39; --blue:#0166aa; --green:#2bb673; --gold:#ffbd59;--white:#f7fbff; --soft:#bbd6e7; --muted:#8fb2cb; --line:rgba(183,221,244,.2);--panel:rgba(7,43,81,.86); --card:linear-gradient(157deg,#124876,#082d54); --ink:#062744;--ok:#7ff0b8; --qr-ink:#013364; --qr-paper:#ffffff;--font:'IBM Plex Sans Arabic',Tahoma,'Segoe UI',Arial,sans-serif;--ease:cubic-bezier(.2,.8,.2,1); --spring:cubic-bezier(.34,1.56,.64,1);--shadow:0 16px 45px rgba(0,9,32,.38);--gut:max(16px,env(safe-area-inset-left,0px)); --gut-r:max(16px,env(safe-area-inset-right,0px));color-scheme:dark;}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html{font-size:clamp(14px,calc(.62vw + .85vh),24px)}html,body{height:100%;margin:0;overflow:hidden;background:#041d3b;color:var(--white)}body{font-family:var(--font);overscroll-behavior:none;-webkit-user-select:none;user-select:none}h1,p{margin:0}#app{position:fixed;inset:0;isolation:isolate;display:flex;flex-direction:column;overflow:hidden;font-size:1rem;line-height:1.6;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:radial-gradient(circle at 12% 14%,rgba(43,182,115,.15),transparent 28%),radial-gradient(circle at 88% 90%,rgba(1,102,170,.4),transparent 38%),linear-gradient(135deg,#041c39,#013364 60%,#041d3b);}#app::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px}.shell{width:100%;max-width:94rem;margin-inline:auto;padding-left:var(--gut);padding-right:var(--gut-r)}.topbar{flex:none;position:relative;z-index:5}.topbar .shell{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding-block:.6rem}.topbar .shell::after{content:"";position:absolute;inset:auto 0 0;height:1px;background:var(--line)}.brand{display:flex;align-items:center;gap:.75rem;min-width:0;flex:1}.brand img{width:2.9rem;height:2.9rem;flex:none;filter:drop-shadow(0 2px 6px rgba(0,10,30,.35))}.brand b{display:block;font-size:1.12rem;line-height:1.3}.brand small{display:block;font-size:.78rem;color:#ecf7ff;opacity:.8;line-height:1.4}.stage{flex:1;min-height:0;display:grid;grid-template-columns:minmax(14rem,17.5rem) minmax(0,1fr);gap:1rem;padding-block:.9rem .5rem}.glass{background:var(--panel);border:1px solid var(--line);border-radius:1.4rem;box-shadow:var(--shadow);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}.panel{min-width:0;min-height:0;display:flex;flex-direction:column;gap:.75rem;padding:.9rem}.p-head{flex:none;display:flex;justify-content:space-between;align-items:flex-end;gap:.4rem 1rem;flex-wrap:wrap}.kicker{display:inline-flex;align-items:center;gap:.45rem;font-size:.78rem;color:#b1efd2;font-weight:600}.kicker .dot{position:relative;width:.5rem;height:.5rem;border-radius:50%;background:var(--green)}.kicker .dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--green);}.p-head h1{font-size:1.55rem;line-height:1.35;margin-top:.1rem}.p-head h1 .grad{background:linear-gradient(90deg,#b0f2d0,#ffda9d,#b0f2d0);background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;}.p-meta{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}.chip{display:inline-flex;align-items:center;gap:.4rem;padding:.2rem .7rem;border-radius:99px;font-size:.8rem;background:rgba(255,255,255,.06);border:1px solid var(--line);white-space:nowrap}.chip b{font-variant-numeric:tabular-nums;color:var(--gold)}.grid{flex:1;min-height:0;display:grid;gap:.7rem;grid-template-columns:repeat(var(--c,6),minmax(0,1fr));grid-template-rows:repeat(var(--r,4),minmax(0,1fr));font-size:calc(1rem * var(--k,1))}.tile{position:relative;overflow:hidden;min-width:0;min-height:0;display:flex;flex-direction:column;gap:.45em;padding:.8em .85em;border-radius:1.1em;text-align:start;background:var(--card);border:1px solid var(--line);box-shadow:0 10px 26px rgba(0,8,30,.28);}.tile::after{content:"";position:absolute;inset-inline-end:-3.5em;top:-3.8em;width:8em;height:8em;border-radius:50%;background:var(--gc);opacity:.12;filter:blur(6px);pointer-events:none;}.t-top{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.5em}.t-ico{flex:none;width:2.45em;height:2.45em;border-radius:.8em;display:grid;place-items:center;font-size:1.05em;background:color-mix(in srgb,var(--gc) 17%,transparent);border:1px solid color-mix(in srgb,var(--gc) 38%,transparent)}.t-ico span{font-size:1.3em;line-height:1}.t-type{font-size:.74em;font-weight:700;padding:.12em .7em;border-radius:99px;background:rgba(255,255,255,.08);border:1px solid var(--line);white-space:nowrap}.t-type.p{background:rgba(138,206,255,.12);border-color:rgba(138,206,255,.4)}.t-type.s{background:rgba(255,189,89,.12);border-color:rgba(255,189,89,.45)}.t-name{flex:none;font-size:1.06em;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-wrap:balance}.t-foot{flex:none;margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:.4em;font-size:.76em;color:var(--soft);min-width:0}.t-tag{display:inline-flex;align-items:center;gap:.35em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.grid.enter .tile{}.foot{flex:none;font-size:.72rem;color:#aacbe0;text-align:center;padding-block:.15rem .55rem}@media (max-aspect-ratio:1/1),(max-width:760px){.stage{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}}@media (max-width:760px){.brand small{display:none}}@media (prefers-reduced-motion:reduce){*,*::before,*::after{}}.stage{grid-template-columns:1fr!important}@media (max-width:1000px){html,body{height:auto;overflow:auto}#app{position:relative;min-height:100vh;overflow:visible}.stage,.panel,.grid{flex:none}.grid{--c:3!important;grid-template-rows:none!important}.tile{min-height:9.5em}}@media (max-width:640px){.grid{--c:2!important;--k:1!important}}</style>
 </head>
 <body>
-
 <div id="app" dir="rtl" lang="ar">
-  <div class="bg-fx" id="bgfx" aria-hidden="true"><b></b><b class="b2"></b></div>
-
-  <header class="topbar">
-    <div class="shell">
-      <div class="brand">
-        <img id="logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAaN0lEQVR4Xu2dC9B1VVnH/5+VXFRUCpC8IWZqilIxmkRqSalY46iAqQGhk1hqGDmGAppSYRFTlom3VLBCxS5aIagkFSHCFOSYKNdSQIEQzEv33uZ3vvWH/R3OOe++rL3fvc5+fjPvvN/tPd++rP9az3pua9vGxoaCIFjMtw7wYLZJd3yVArOGv4IJ06dAEMbdJP1f+ioNrp2v/y3twoN8bOvJxPqWysDaRdKDpNn3Euw5rvFWSTekx+wVEKEHE6OPFcTieLCkl0k6WNIeknYqSCBfl3StpDMknZXE7tUwmBDzKwiDgBmTWdTfm8ycHkTPl3SapPutwbP8S0kvknRT5ZkEE6EqkGUz5LI/n8crxxFp5kVg/53seJsppVDdpLPKXizpUEk3JpE0mTSCgrFAvFrsK+kwSY9MJsbZkq6oMXMiIgbVw9Jguk/amCOa0vkvSXeXdKako6Qd9lfBmoNAvEI8QdL7JT2wcs9sVo+UdM4mA8Orx1slHZNs9nUQByB8Vgy8WQdJurSDSHgmnozGDtdZqgcyGwiEB4GH6ZOSHiPNZkzMiv9JM+d1kg6s2ODz5oVf+O6SLpf0gDSoEN66gDgY3L8m6YQOAikRj4VJws0zQx4g6eFpxsCcAL4jkodI+n5ptlldNOgdK/geaSYSBLOuMIF4VWkKz/NZkvaW9J9LnuVY4J1+TdJFkq4saNXLjt28rCAwP7i9Ouxc43/m33gvsm4i8f3ct4VA/AzvIel1aX9XCjglTpT07krQd1JU4yDLBrVt0aAbrNS3pVXZJtuY4Xq/U9Lpkq6SdOHETMsZfQQKg+XwvPli0inBicF+lADv4Ukgk0u9WaeNdJAfm8ysJICDZpmlsZbECjIs1QBkCXlpCIIxQtoNlOKizkYIZDicvuNBNnaBcJ143m6R9K7KCjIpQiDD4hWkBFOF/cfnJb1C0uemmmITAhmOb0g6Xpq5ihl8Y93/IWKujYxmctC+OVUXL4RA+semFEHXC/r/77JTN1l1LQmBDItzsUrAOWiTzlwOgQxLlO8Wxljt4CAYBSGQIFhBCCQIQiBB0I5YQYJgBeHFGpYSMnj7wC7j4giBDMuU3bxFBhxDIMNB4t9zU6+wMaea5Ob21OjiM+mDi8oIDoH0jwfErpKOk7R////l6KAG/5clnVrprjn2bOYZIZBh+Y80QGioN5X9CEJgnJ0i6Rpp1mut2rt51IRAhsWtXRkgUxEIkKiJUOi6+cFCejTPCDdvMAQu3d0rrSbFJECGQIIhwHvHWLs6rSbFjLtiLjQoFkyrb0tFYm+vnBxQBLEH2Rqmcryb7/MLqZryr1PpbjHxoBBI/9idSSvPl0vaLZkZ694+x6W7xHz+KTXNKyoGEm7eYWHWvGTY/3JUFOParRIryLBMdc/HalKMWRUC2TqKcW8G25nqjBYEtQiBBMEKQiBBEAIJgnbECtKcdY9fBBXCzdsMB7pyi4SJKiar+uAyHqSeJARSDwuD8+M5yPPTmWsaJn/ccgsGKeENgdQDgVDTQGd2joI+VJoVPXVNnfDPPy0Jj3PpKc0dZHYsEKLxX5H0EWlWytu7SEIg9fF54c+Q9DJJv1k5T74tNtUQxrHp0MxgNay25HYdKenyvkUSdm8zmMGY3V+bzpZnVelSGeiDdC6V9MPJdANquLGz42vxM9hP0nsk3bPv9PmcApmCWWCT6F7peOR7p4MtuzxHRMLPXynNTK2/TSfL+s9dnhvft09G1JYwcTxW0kFJIF2e/0pyfnBXe7wUeGasHAdIemPlBXXxbPmwzC9JeqakP0sDITbvi+FZ82zu3/egySEQrxw3JNNgCkJx6vZLJL0oCabrfs7m2m2Sni/pzWnG5B05E3b+lNwp/h5huISXVRd6s15yCMR2NAc9XpEutrcLHglMAm5E8FuSnpi8Wl32I8CL57NpD0Rx1c+mswL5XAQ0dTwhYGZ9ODWk63VCziEQ8GD5vQmdhuplnv0IxyQ/MA3wriuJJxdE8VZJT5f0D5VuIFNcNaq9fZk83ifNVm+cGb0KpOvLNF7y3i/p2ZKeky4epecS4RixqfVQSe+VZi5gTrPt6p93gRHv58K0eX/EREp1l+ES3q8mN6/Pne+1xiaXQGwHctEvlrSLpEPSnXIDJZhcNpuagkgIGj5J0jskHVXxbHV9eZhVvKNb0lewHTfg6/p8NyW3QLhwIp00af5FSS+VtMemVzEePCCbYtfj89L9E0j0S+w6OXBNbcW7rgw26eYUCHjDziH0r5f0Tkk/lBo2EzPoOlj6gGveKZlHe1c8JE3dtnb/MilgBpxQ2Td0nemKrekundwCsanlGQ/XLxsqvsbOoyT9aopDQNPVhHv2nuQ1abI4qeKq7SqSYAvoQyAWiV2W3qQ3nZGHhvwekhDxjpws6T4tReKV5MRKWgrC6dXbEvRDXwIxJZkG9jwRoLtI0u9KOrASm6jrjUMIPFcmCFYQzLfjK/uIItvfTJW6L30KOK2DwU3cgfjDmxZEs+viCPirpDviQ4ijazAxGJAQyF1xygetQl+R3LZsuptGs70PQxRExM9KbUf5fd8rd5CJEMhibAYhijNToI49CgObmEddvHFHdIdJOlfSd7XY2wRbRF2BUOU2NarR7Isl/aik81KWbdO8KBdbPUHSxyQ9uSKSsTsvJk1dgew+4adkdy+p6KTRnDGXF1UXrz77SPqL5C3z0WSxLxkpFgiBPUdsFwXzHjDS6x8K70tIlCO9/bRKgmaT4Kcj7px4e7qk30917ph0/F2sJiPDAvmipH9fcG1+YT+SIQGvdNxqBkG8UprFOeypahIE9GqB6F4o6XxpZnq5CUTdVT0YAOcLXS/pX9L/V50RncZO9RwxAf5uyuaAnw3Phag7IrFHqslK4lgJIvleSR+VZtF3x2J4xvx6rF/c8yTGgV8AMyC10DD/ou2W5AUCL3fKpoAT5RggiIRgoAd2E5GAA4o0H+CzcAIgGMdkxvodYXtcrPVY2LaxseH8IcwoPCxQXeZdoMOf/XyKMPNio176TmGwkpCe4rqYpoOm6jGj3xPuYAahV/Ax4HqMb0q6StInUkWfx0sTM7MYEIhf5s7pph+fXnR1CXVFF+fNka367nSHbCw9ozadPcdE22uvBgNPSSklXaLl7mRSAgj5T9IKemOmPWrTiWUz2r7XO0AgXuqZsY5OnpXNor2kYFCL7X1LyXiQd6kxsIlF/ha1IF1EUkL+GteIFcGzu0zSs9JY6FpJmVsg3g60frcWiAcJiXX46GlituglV82t66RZiS1H+9KsgdSM0uC+SSNZ5eKug50drKgfkPQTE4iWMxbwvBFEZgyQu0aNeFtTyxv/zrN+BSwe0yqb2gKp2pGYWBdIM5Nr2ZJfFQ8PheWW7yVhm5oKSLr00XCiS79dz54EVT9e2Wyvu9vWgVTyzWgy0fQ0W/97TFTKDRhLOXLVeL//lnqMcV3EsBpTFQj4Yo+R9JZKW8dFL9n9iZg11wFMRuIb0HYW9PN7dBLJnn13/hsBdkyQAf2DaZJp8vwYP0xM7Gt/uqf7Ya9EL18cDFB7lZof+O7w9zZJb6j4uhfdMD/LzdnsGqtLcrPrYgbk3zADfl/6dVsfv1fWz6RUEi/xtV9Igdi83FfSw1dYHZtxc/pZntlm76zu3/M+EB8pQuyTGsfx5gXCB9i9SE05M6pnCOcNzeON0FiDWptdl13WmJTM/NBls+i0EdqHEtvounEtBTrZUNPf9vkxu2/2rpr+vSc6xvXBbR7kMvvY9jk5R6RpX13xWjhItE6zou+lSSr7Kpy7Re/eP29hl5eGvVo2t9tMMG1+pi7Vsdpo3C7bDPlDUOCHJH0qdemgZ6wze73atJ0xxgAvhcGMJ4Yl/u8zdYa02YngKLqiIQQmSElxjqY0GngLsCs2ZwDa8TuES2ATnD9Xi1Xegmp098upVyx7kxdIekry0uTwNmw1iAMPB6Wx9BfOZRJ5P3etpONSZ5cp1tXUBROXCSv3M2KS/2D68oRYmzoD3DEC/iM2n69OKdpsyLDZqZDbK3UBKRGCncQuaNTAA2zigdkM7+dYhS9JTa67BBHXEa88xNU4MYrSi7ZOkipMdOxrMHGZ2Pl141jIvJt3M7xJalpRVwK5Vo55/FLOScG0dROIBzhjAm8RgWZXUDbB5clMUF33I1yTn7snvMbigDorSBXbh468G9vcJWIvXF/teKr7uWA53tO2GsgLsNBYjVqnmjQVSFUQfQ2ooem6uazLUP9P6eR8Tt5Ht2bd0yCCoBMhkCBYQQgkCEIgQdCOWEGCYAVtvVhB0Add4x9tWOk1yykQn4HRFzlzdILxMR9bGwqLcmHwO4dAHIEeIi7SV7Q72Ho6xyw6sjBA2VUgHrDUAnAWIWeF5wz0ABdOOe+lkj7f8SEE48NpKRyAekRKHB1qb8z/Q0dR8rX+MD2aHYTSRSBO7NsvHX9Mw7PcmZgG0ZHExulPr0tFXDmTCoOtwybOY1Ku2lZweEokpap0h7SptgLxTX1HOj9j/wEayd0rZRKTev87EyhCmhrM5OwDmh6e2hWX4f5MSrT8cHVstV3K2JDzwZyZgTic1t20JLLJv3ft+FHSrFVnjqzPYDwwFpiwh/6qNj88pGJmzWgrEPOgLpmSDbGYWEk4gdYpzUHQFe876Au3A21NLHNNEpkbOvTpx7aXjMKX29oUvwSjxuWxQ7vz7T1j/0w/OLjD0dRWIDZv+ED6IdEuh/rrrivSMmwn8vn0T/pG7EHWDsYi77cvR88q2DJQ0Pa++arSLgLhZv41NeSiK+GTen5ldMn77dRdnpVqiLhL0D+erRlLX0ilsW3HZVOY6G+V9Ffp1DDCCTvE2rpciFcRTn99hqTHSTOvVm73q93JNFT4bIZyzGBcOILNcXQ0Vxh64sNkZ/KFu/Qk6CIQ22osT5g8bqvSJ037vgblQJyLr61gaVluV4EAih8ij2arUxGCfunTwbMZS1etHALxSjL00hisF7lTlLLQl9cpCNaCEEgQrCAEEgQhkCBoR6wgQRArSBC0o42b171svfqM0j1XE0dOc0f/g+YQrGNM5RxPTklq/X6bCMQt6Yl3OPNyXYha962HcdVXLK11Q+w6Apk/8uAe6fAccq/2SflXJeJkS7KDOVmqT5HEXm85Th/inHUO2nSmdhdcK0SGORWCnOPeSiSbCcQXzxJFzTlHsD1T0kNaHJ0wVjge+GhJf9z2IW6CzbicpsM6weTByvFEaVb2mhuOwDs5fTW2fJYJxIeZkGn5MEm/JOm5qdTV2NQqGYRPheKbJP2NpFsyi8SrEg0JDpjAmeld4Bg8H9u82cRdFwTBZ9Ho42JJ5zY93GfRhXgTjjio//71dMQa+PRWC2gdQCT3l3SQpD9tesjjChAHz4kyTuplKAVYt9OlcuNeB7kEApy7ThEWlg8CacS8bWxxMGjeIOk9SRzYclbjVmZd9gX360q2XPdn0+G1SXxubLGudH1ud6kHz4RN3Hunz2tk6s4r1R/G+d6YVX6pPv96ESUfv+ZjmVne2ahDDk8KMyHPjlmL03P5zJyz4hjpWkvuAdz6uLQl8OwZv5SGgyeuWlRfmjfkJ1bEsazfrm/CZkTX2WOr8ArKanl1Jk+WnyOnAJ+eaucbzVoFwvtnkvlKi1naz8YC8ZjKBcdLU/V6VjJ5G02AFohfKn2uTkoz3qILddFSVVjU9NJlhAdUilC4D7t5/yB1hmzlBpzDm3JeNubp3hPYd9iCwMHhkui6gTkH8hhP354af+Rw8wKfTTntxyW9XtINbY755sJsVt1X0qnJFkdl8/sT+5b5mStTB4iPSvrnJI5GyhwB3DdF+q3Oz16A9288Jzo//sAExAHuOEN/W2q7m5RFe/VAUC+WtGsyTXPA+KVb4/Xpw1pNgG61wuDGB/3YJS/VtjoD6rQkpNtz3MUIaPJCV2Hb9ldSp5ehW2huBThvsO9vTB1noO7qUYWf+WJPN+CJvs11advGxkzErB5sUomM2/wwFsfXJL0wdZ5wDXrJG3STY3/gDuU0P6bBNs+sy3kpOa6pL/zOuUfEwapxmDSzJrpkI3gFzknn8em9BD1JF4nDSygP46VJHLhDmTlKM6n6wuJgkGBaOUbUZj/mWW7MqSm+LyYANr/HSjq/aQBuAZ0Hcx9YIE+r7PCrL8czIRvO96aHQOAl2A4zKJPFwZLeVclGbTPAqybZzZVuMWMCceCQoUcZm186EeKksVt77UAgRHgfne6sOut5U/5VaRYX8WoSbIdnhzieIunsSsf5puKoegbpLojH5QMjft7cM+a2LYhce7hRwksmzYIu7VAViINbZEJe2zTAsubYrKLdKrMo3ebbpJH4Z/g8sk5fnVylY4dxwjVjYay1qc1N7pk26d6Mz/N3aab0OQpTx2YV7VY5touYRxtx2AOE359kOhImnevWyuMyIKx6Cw+9XDcQCLOfYyFV7DcmzhHm1Z3dIxnYZDbTS5baGO/T6mKTCqFdJunnUqap627WekYuDV4KLt55AdjVyyzBDDd1nFXA4MWVe0YKai0KqK7CKTpMTKw+P5bEwe8b1yoE/dN0QzlFnILNikoQ8C3JewUuQ66DTVgmHRJBfyodH2EP0JhjH5OlTobplF+c9xu7pxjHCypnIzaJc9iFi/uWlIoPVZIYw6QaMXUEMkXspWG/gQuc/QY1+Dap2ojjqrRqXJJWIB9bF4yYMLHuis0mxPEcSR9L4uD3TdNH7CqnFoFsBYvDBWjByAmB3AmrAiYVg3qXlJBJwO5+yaW5qmhsERYUaRh07KDexMHFoBCGMLGchNbELBkSZwzwnUHNgaTEJKhRRyxsrps+J1exsfqQo0U2wtqmY6wzTV98E/hsdz4pYaPPCkF57PEp+FdtUNEEb8hZOZ7XokYiGBF9CMSp8K5nJ0t43xQ38MGfY8EBUhoGvESaVVRC2xpyi4OV49BM4vDzDLYzaLwot0BsTjHAGGwE1fh+z0Lerr1UTeIbxuL4ZMaVw4mA4QreEY+z3lNycgqketF0ssNU8eeP3cTy9bURBlgc1EccnlLAndDYFv88yaQ0nkMkY93HDYFLe78k6fK0krQqo21CToG45JTEOzqjMGg8cMb+YrtcnzfxN6XWrNRAd9mQu+CKZ/dkSW9PrV6XJZNOCTtSzksFfIilSxXjpuQSiMVxoKTXVAJq6+5Gdm4VZadHSPp0x8o6Py/EQcSd+n/MUwZGrndVOjwHmlzjin92arzRG7kGsGfgX6h0KMz12WPGmbyvTAHFLmaVHQaI4RRJbxupY2MMYG5SBfv4FtnUjcgxiHmxXLD72zqusO7Y00WThnd0NKu896GR9plp/+Y9R453tE54r8s4e2jfN5Zj2bZ5RRf43dIFr/tLdYHUhSkzlwHe1qNiTxWFVzSx+/GWBVhTwvu+L/d90zkEYgi0ddnsloI3y2wQj0mN55gQ2njqvPqyz6A+hCpFGtnROWYSFXst4PnzfCg2u6hNt8Qm5BRImwFSGm5NgyDYd9Bqs+2+w6vsg1PfWDoxAt0Fg9Vcmhod0mGl16YROQUyBbwpf6ekP+q47wA+j4pOGjZwFFzThMgpghv9gpTf5hW4N0Ig9fG+g77EJ2Q4kdV7FkwFvoJm9LpymBBIPVyjT29iMgSoDGxrWs0TuVbNGazdUAikHhYIgUAf05ZrE+0uJ8EIWXd3bG58BsoUHBLBgjNAgtW0decGhRIrSBCsIAQSBCGQIGhHeLGGhefde5HPCMEt2zZXbUsJgQxLLtdwiQwS2MtNCGQ4eNYUlNFNn/ZC657Y6bIH7vUfU3C11+q/PgiB9I9NKo5KoELwgCSQtvXvJcG9IxCO0KAUm8OGihJJeLGGxX3CpoJLhb87neFIjX3T81S2lBDIcFRNqmq3ySn8moNfqSGnzr4oJ0WYWMMyL4apwDhziSy/xuwqglhBgiFw47sbS+vvFSvIsLhXmJtirzvu1EKJLNCQwnuQIrpFhkCGhZOqeOZTe+63SvqNSqlAMUHDqb2orcCp8T7ueS9pljY/FfOW/QYHCNEuFIoRB4RAhoOBwoE8UyUi6cGmND3CbV0otmoyVpBhKWJjGtzJVOzgIGhFCCQIVhACCYIQSBC0I1aQIFhBeLGGhQmppEIpn6A1WUIgw1JUFDlRZIAvFyGQ4WCg7SfNTpEae8ktqxyJlTTqvr20Go6chED6xwVCHJLDEQf7F3SC1CXpBC2OGyiq0CkXsUkfDgYYSYq2630Yz1i/E/V/XMofe2R6TJMbL5O74S2G513KM+c6Oe5hD0lHporAUq49G2FibQ0uvR07PpyUA1rBrXwm091+cjNC0Aifi+LTZCe3D4kVZDiqew32IWOPh3C9nJmImcXx1FCim7oTdQQy9hdZCjxHH5VdymGdlMq+StLFfR+3PFYQCJ0mFuEiFzwvwXa6TBacf/5GSXumWXms5m21ZegnUlfEoroh5gSBcOb05yQ9IrkhvTHbSdIVkj5Vc/YgsFTdxHUZTGPDm9KvV4RSd6Pqf0fztLPHdmM1mKw4AIHcJOm4FMSioYBhZTlWmg2KVQ/JA+AaadaYYNcaD71UmEi6rCSlldwWe2xBLrZtbGzYM/EoSYdLM5EgjrMkXVWz2bAFdI6kpxcUKa6Lz0g/RNJHpGnnJ00JBML9LktIq7u8+t89VdK5KY+ntNlyGZiOrLSkWyB+vDpQ18QKCsYbRWZIfs1AYGDzva44wG7L8ySdmn6ez3Q389IGE9fLPZFUyLO4LZmhOCx4PqXdT9CSqps3h72JqE6StLOkl1euqaRWm5icTgnh+w2SjpZ0WfrzKZ8SNTlsYuXCnitm2J9Mm3y8Y5yqVBII+npJ50s6Obk6mUxCHBMjt0DAeUasSMzAnKi0j6TdCnm2iONmSZ+VdF265kkXDU2ZPgRiHE8p2V5fh3sIOtCnQLyauA67tES3HHuyoHD6FkgQFM3/A4gOpxXFXv+PAAAAAElFTkSuQmCC" alt="" width="46" height="46" draggable="false">
-        <div><b id="tBrand"></b><small id="tSub"></small></div>
-      </div>
-      <div class="toolbar">
-        <button class="tool primary" id="langBtn" type="button"></button>
-        <button class="tool" id="fsBtn" type="button" hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
-          <span class="tl" id="fsLbl"></span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <div class="shell stage">
-    <aside class="rail glass" aria-labelledby="rTitle">
-      <div class="r-head"><b id="rTitle"></b><small id="rSub"></small></div>
-      <div class="r-list" id="rail" role="group"></div>
-    </aside>
-    <section class="panel glass" aria-labelledby="pTitle">
-      <div class="p-head">
-        <div><span class="kicker"><i class="dot"></i><span id="pKick"></span></span><h1 id="pTitle"></h1></div>
-        <div class="p-meta" id="pMeta"></div>
-      </div>
-      <div class="grid" id="grid"></div>
-    </section>
-  </div>
-
-  <footer class="foot" id="foot"></footer>
-
-  <div class="m-ov" id="ov">
-    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"></div>
-  </div>
+<header class="topbar">
+<div class="shell">
+<div class="brand">
+<img src="data:image/png;base64,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" alt="" width="46" height="46" draggable="false">
+<div><b>ملتقى التحول الرقمي 2026</b><small>قيمة وأثر · دليل المنتجات الرقمية</small></div>
 </div>
-
-<script>/*! qrcode-generator 1.4.4 · MIT License · Kazuhiko Arase */
-var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,(function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1}))},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(t,r){var e=n("友");if(2!=e.length||38726!=(e[0]<<8|e[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}((function(){return qrcode}));</script>
-<script>
-/* ================= روابط الخدمات وأدلة الاستخدام =================
-   ضع رابط كل منتج بين علامتَي التنصيص، وسيُولَّد رمز QR تلقائيًا.
-   service = رابط الخدمة · guide = رابط دليل المستخدم. الرابط الفارغ يظهر «قيد الإضافة». */
-const LINKS={
-  1:{service:'',guide:''},   // المنصة الموحدة MyJU
-  2:{service:'',guide:''},   // منصة خدمات المستفيدين
-  3:{service:'',guide:''},   // منصة بوابة المعرفة
-  4:{service:'',guide:''},   // خدمة لقاء مسؤول
-  5:{service:'',guide:''},   // منصة البيانات الشاملة
-  6:{service:'',guide:''},   // منصة الترقيات
-  7:{service:'',guide:''},   // خدمة الملف المهني الشامل
-  8:{service:'',guide:''},   // خدمة إخلاء طرف للطلاب
-  9:{service:'',guide:''},   // منصة الطلاب والمجتمع
-  10:{service:'',guide:''},  // منصة المتقاعدين
-  11:{service:'',guide:''},  // منصة الخريجين
-  12:{service:'',guide:''},  // منصة المجتمع
-  13:{service:'',guide:''},  // منصة النشر والتواصل
-  14:{service:'',guide:''},  // منصة الأنشطة الطلابية
-  15:{service:'',guide:''},  // منصة الابتكار
-  16:{service:'',guide:''},  // منصة خدمات PDF
-  17:{service:'',guide:''},  // خدمات ذات أثر
-  18:{service:'',guide:''},  // خدمة الاستشارات
-  19:{service:'',guide:''},  // خدمة التدريب التعاوني
-  20:{service:'',guide:''},  // خدمة المتابعة (المهمات والاستئذانات)
-  21:{service:'',guide:''}   // جائزة جامعة جازان للتميز
-};
-const IDLE_SECONDS=120; // العودة إلى البداية بعد هذه المدة دون تفاعل
-</script>
-<script>
-(()=>{'use strict';
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const esc=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-/* ================= Beneficiary groups (primary classification) ================= */
-const GROUPS={
- gen:{ic:'🌐',c:'#4fb3ff',ar:'عامة لجميع المستفيدين',en:'For All Beneficiaries',
-  dAr:'منصات وخدمات متاحة لعموم المستفيدين دون تخصيص فئة بعينها، ضمن نطاق كل خدمة وإجراءاتها.',
-  dEn:'Platforms and services open to all beneficiaries, within each service’s scope and procedures.'},
- st:{ic:'🧑‍🎓',c:'#2bb673',ar:'الطلاب',en:'Students',
-  dAr:'منتجات ترافق الطالب في حياته الجامعية، من الأنشطة والتدريب التعاوني إلى إخلاء الطرف.',
-  dEn:'Products that support students through university life, from activities and cooperative training to clearance.'},
- fs:{ic:'💼',c:'#ffbd59',ar:'أعضاء هيئة التدريس والموظفون',en:'Faculty & Staff',
-  dAr:'أدوات المسار الوظيفي لمنسوبي الجامعة: الملف المهني والترقيات والمهمات والاستئذانات.',
-  dEn:'Career tools for university personnel: the professional profile, promotions, assignments and short leaves.'},
- aff:{ic:'🏫',c:'#36c5d6',ar:'منسوبو الجامعة كافة',en:'All University Members',
-  dAr:'منتجات تجمع الطلاب وأعضاء هيئة التدريس والموظفين في تجربة واحدة.',
-  dEn:'Products that bring students, faculty and staff into one shared experience.'},
- units:{ic:'🏛️',c:'#b18cff',ar:'جهات الجامعة وصنّاع القرار',en:'University Units & Decision-Makers',
-  dAr:'منصات تخدم الكليات والأقسام والإدارات في البيانات والمؤشرات والنشر المؤسسي.',
-  dEn:'Platforms that serve colleges, departments and administrations with data, indicators and institutional publishing.'},
- ext:{ic:'🤝',c:'#f472b6',ar:'الخريجون والمتقاعدون',en:'Alumni & Retirees',
-  dAr:'منصات تُبقي صلة الجامعة قائمة مع خريجيها ومتقاعديها.',
-  dEn:'Platforms that keep the university connected with its graduates and retirees.'},
- com:{ic:'🌍',c:'#ff8a3d',ar:'المجتمع',en:'Community',
-  dAr:'منصة تفتح مبادرات الجامعة وخدماتها وفعالياتها لأفراد المجتمع وجهاته.',
-  dEn:'A platform that opens the university’s initiatives, services and events to community members and organizations.'}
-};
-const ORDER=['gen','st','fs','aff','units','ext','com'];
-
-/* ================= Beneficiaries (roles) ================= */
-const PERS=[
- {k:'s',h:'students',ic:'🧑‍🎓',ar:'طالب',arPl:'الطلاب',arB:'الطلاب',en:'Student',enPl:'students',enB:'Students'},
- {k:'f',h:'faculty',ic:'👩‍🏫',ar:'عضو هيئة تدريس',arPl:'أعضاء هيئة التدريس',arB:'هيئة التدريس',en:'Faculty',enPl:'faculty members',enB:'Faculty'},
- {k:'e',h:'staff',ic:'💼',ar:'موظف',arPl:'الموظفين',arB:'الموظفون',en:'Staff',enPl:'staff',enB:'Staff'},
- {k:'al',h:'alumni',ic:'🎓',ar:'خريج',arPl:'الخريجين',arB:'الخريجون',en:'Graduate',enPl:'alumni',enB:'Alumni'},
- {k:'r',h:'retirees',ic:'🌳',ar:'متقاعد',arPl:'المتقاعدين',arB:'المتقاعدون',en:'Retiree',enPl:'retirees',enB:'Retirees'},
- {k:'c',h:'community',ic:'🌍',ar:'من المجتمع',arPl:'المجتمع',arB:'المجتمع',en:'Community',enPl:'the community',enB:'Community'},
- {k:'u',h:'units',ic:'🏛️',ar:'جهة جامعية',arPl:'جهات الجامعة',arB:'جهات الجامعة',en:'University unit',enPl:'university units',enB:'Units'}
-];
-const PK=Object.fromEntries(PERS.map(p=>[p.k,p]));
-
-/* ================= The 21 digital products (from the Digital Products Committee report, 5 Nov 2026) ================= */
-const P=[
- {n:1,ic:'🧭',t:'p',g:'aff',tags:['s','f','e'],
-  ar:{name:'المنصة الموحدة للموظفين والهيئة التعليمية MyJU',short:'MyJU',
-   desc:'منصة رقمية موحدة بجامعة جازان، توفر نقطة وصول مركزية إلى الخدمات الإلكترونية الأكاديمية والإدارية للطلاب وأعضاء هيئة التدريس والموظفين. تتيح المنصة للمستفيدين الوصول إلى الخدمات والأنظمة الجامعية والاستفادة منها بسهولة ومرونة، من خلال واجهة موحدة وتجربة استخدام مخصصة وفقًا لفئة المستفيد وصلاحياته، بما يسهم في تبسيط الإجراءات، وتعزيز التكامل بين الأنظمة، ورفع كفاءة الخدمات الرقمية وتحسين تجربة المستفيدين.',
-   feat:['وصول موحد للخدمات الأكاديمية والإدارية','تجربة مخصصة حسب الصلاحيات','تقليل التنقل بين الأنظمة','تسهيل الإجراءات وتحسين تجربة المستفيد']},
-  en:{name:'MyJU Unified Platform',short:'MyJU',
-   desc:'MyJU is a unified digital platform at Jazan University that provides centralized access to academic and administrative e-services for students, faculty members, and staff. The platform enables users to conveniently access university services and systems through a single interface, offering a personalized experience based on user roles and permissions. It aims to simplify procedures, enhance system integration, improve digital service efficiency, and deliver a seamless user experience.',
-   feat:['Unified access to academic and administrative services','A personalized experience based on permissions','Less switching between systems','Simpler procedures and a better user experience']}},
- {n:2,ic:'🎧',t:'p',g:'gen',tags:[],
-  ar:{name:'منصة خدمات المستفيدين',short:'خدمات المستفيدين',
-   desc:'منصة رقمية لتنظيم استقبال طلبات المستفيدين واستفساراتهم وملاحظاتهم، وإحالتها إلى الجهات المعنية ومتابعة معالجتها من خلال قناة خدمة موحدة، بما يعزز جودة الاستجابة ووضوح الإجراءات.',
-   feat:['قناة موحدة لتقديم الطلبات','تتبع حالة الطلب','تحسين سرعة الاستجابة','توثيق الملاحظات ودعم تحسين الخدمة']},
-  en:{name:'Beneficiary Services Platform',short:'Beneficiary Services',
-   desc:'A digital platform for receiving and organizing beneficiary requests, inquiries, and feedback, routing them to the relevant departments, and tracking their handling through a unified service channel to improve responsiveness and service clarity.',
-   feat:['A single channel for submitting requests','Request status tracking','Faster response times','Documented feedback that supports service improvement']}},
- {n:3,ic:'📚',t:'p',g:'gen',tags:[],
-  ar:{name:'منصة بوابة المعرفة',short:'بوابة المعرفة',
-   desc:'بوابة رقمية تتيح الوصول المنظم إلى الأدلة والمراجع والمحتويات المعرفية ذات الصلة بالجامعة، وتدعم الاستفادة من المعرفة المؤسسية وتبادلها بين المستفيدين.',
-   feat:['تجميع المصادر المعرفية','تسهيل الوصول للمعلومة','دعم مشاركة المحتوى','حفظ المعرفة المؤسسية']},
-  en:{name:'Knowledge Gateway Platform',short:'Knowledge Gateway',
-   desc:'A digital gateway providing structured access to university-related guides, references, and knowledge resources, supporting the use and sharing of institutional knowledge among beneficiaries.',
-   feat:['Knowledge resources in one place','Easier access to information','Content sharing','Preserved institutional knowledge']}},
- {n:4,ic:'🗓️',t:'s',g:'gen',tags:[],
-  ar:{name:'خدمة لقاء مسؤول',short:'لقاء مسؤول',
-   desc:'خدمة إلكترونية لتنظيم طلبات لقاء المسؤولين في الجامعة، بما يشمل تقديم طلب اللقاء وتحديد الموضوع وإحالته للجهة المختصة ومتابعة إجراءات التنسيق والرد.',
-   feat:['تسهيل التواصل مع المسؤولين','تنظيم الطلبات والمواعيد','توثيق موضوع اللقاء','متابعة الطلب بشفافية']},
-  en:{name:'Meet an Official Service',short:'Meet an Official',
-   desc:'An online service for organizing requests to meet university officials, including submitting meeting requests, specifying topics, directing requests to the appropriate office, and following up on coordination and responses.',
-   feat:['Easier contact with officials','Organized requests and appointments','Documented meeting topics','Transparent request follow-up']}},
- {n:5,ic:'📊',t:'p',g:'units',tags:['u'],
-  ar:{name:'منصة البيانات الشاملة',short:'البيانات الشاملة',
-   desc:'منصة مركزية لعرض البيانات والمؤشرات الجامعية المجمعة من مصادر مختلفة بصورة منظمة، بما يدعم التحليل وإعداد التقارير ومتابعة الأداء واتخاذ القرار وفق الصلاحيات المعتمدة.',
-   feat:['توحيد عرض البيانات','تسريع إعداد التقارير','متابعة مؤشرات الأداء','دعم القرارات المبنية على البيانات']},
-  en:{name:'Comprehensive Data Platform',short:'Comprehensive Data',
-   desc:'A centralized platform for presenting university data and indicators from multiple sources in an organized manner, supporting analysis, reporting, performance monitoring, and role-based decision-making.',
-   feat:['Unified data presentation','Faster reporting','Performance indicator monitoring','Data-driven decision support']}},
- {n:6,ic:'📈',t:'p',g:'fs',tags:['e'],
-  ar:{name:'منصة الترقيات',short:'الترقيات',
-   desc:'منصة إلكترونية مخصصة لعرض وإدارة متطلبات الترقية الوظيفية لمنسوبي الجامعة، تتيح إدخال بيانات الدورات التدريبية والأعمال والساعات التطوعية ومتابعتها، وعرض مؤشرات استيفاء متطلبات الترقية، بما يشمل الدورات التدريبية وتقييم الأداء الوظيفي والساعات التطوعية ودرجات الاختبارات وحالة الاستحقاق. تساعد المنصة المستفيد على معرفة مدى اكتمال متطلباته والاستعداد للتقديم، بينما يتم رفع طلب الترقية رسميًا من خلال منصة «مسار»، وليس عبر منصة الترقيات.',
-   feat:['عرض متطلبات الترقية الوظيفية','إدخال ومتابعة الدورات التدريبية','تسجيل ومتابعة الأعمال والساعات التطوعية','عرض مؤشرات اكتمال متطلبات الترقية','متابعة تقييم الأداء الوظيفي ودرجات الاختبارات','الاطلاع على حالة الاستحقاق للترقية','الوصول السريع إلى منصة «مسار»']},
-  en:{name:'Promotions Platform',short:'Promotions',
-   desc:'A digital platform for viewing and managing university employees’ promotion requirements. It enables users to enter and track training courses and volunteer work and hours, and monitor indicators of requirement completion, including training, job performance evaluations, volunteer hours, test scores, and promotion eligibility status. The platform helps employees assess readiness for promotion; formal promotion applications are submitted through the Masar platform, not through this platform.',
-   feat:['View job promotion requirements','Enter and track training courses','Record and track volunteer work and hours','Indicators of requirement completion','Track performance evaluations and test scores','Check promotion eligibility status','Quick access to the Masar platform']}},
- {n:7,ic:'🪪',t:'s',g:'fs',tags:['f','e'],
-  ar:{name:'خدمة الملف المهني الشامل',short:'الملف المهني الشامل',
-   desc:'ملف إلكتروني متكامل يضم جميع البيانات والمعلومات المهنية والأكاديمية والإدارية الخاصة بمنسوبي الجامعة، بما في ذلك أعضاء هيئة التدريس والموظفون الإداريون والفنيون وغيرهم من فئات المنسوبين. يشمل الملف البيانات الشخصية والوظيفية، والمؤهلات العلمية، والخبرات العملية، والمهارات، والدورات التدريبية، والإنجازات، والإنتاج العلمي، والمشاركات والأنشطة المهنية، بما يوفر مرجعًا موحدًا وشاملًا للمسيرة المهنية لكل منسوب، ويسهم في تسهيل إدارة البيانات وتحديثها ودعم اتخاذ القرارات والتطوير المهني والمؤسسي.',
-   feat:['مرجع مهني موحد لمنسوبي الجامعة','تنظيم المؤهلات والخبرات والإنجازات','تسهيل تحديث البيانات','دعم التطوير المهني والقرارات المؤسسية']},
-  en:{name:'Comprehensive Professional Profile',short:'Professional Profile',
-   desc:'An integrated digital profile that consolidates professional, academic, and administrative information for all university personnel, including faculty members, administrative staff, technical staff, and other employees. It covers personal and employment information, academic qualifications, work experience, skills, training courses, achievements, research publications, and professional activities. The profile serves as a unified and comprehensive reference for each employee’s professional journey, facilitating data management and updates while supporting informed decision-making, professional development, and institutional growth.',
-   feat:['A unified professional reference for university personnel','Organized qualifications, experience and achievements','Easier data updates','Support for professional development and institutional decisions']}},
- {n:8,ic:'✅',t:'s',g:'st',tags:['s'],
-  ar:{name:'خدمة إخلاء طرف للطلاب',short:'إخلاء الطرف',
-   desc:'خدمة إلكترونية تتيح لطلاب جامعة جازان تقديم طلبات إخلاء الطرف ومتابعة حالتها إلكترونيًا، من خلال التحقق من استيفاء الالتزامات والمتطلبات المرتبطة بالجهات المعنية داخل الجامعة. تسهم الخدمة في تسهيل إجراءات إخلاء الطرف، وتقليل المعاملات الورقية، وتسريع استكمال الإجراءات اللازمة وفقًا للأنظمة واللوائح المعتمدة.',
-   feat:['تقديم طلب إخلاء الطرف إلكترونيًا','متابعة حالة طلب إخلاء الطرف','التحقق من استيفاء المتطلبات والالتزامات الجامعية','تسهيل التنسيق مع الجهات المعنية داخل الجامعة','تقليل الإجراءات الورقية والزيارات الحضورية','تسريع إجراءات إخلاء الطرف','تعزيز الشفافية في متابعة حالة الطلب']},
-  en:{name:'Student Clearance Service',short:'Student Clearance',
-   desc:'An electronic service that enables Jazan University students to submit and track clearance requests online. The service facilitates the verification of outstanding obligations and requirements with relevant university departments, streamlining the clearance process, reducing paperwork, and accelerating the completion of required procedures in accordance with applicable university policies and regulations.',
-   feat:['Submit clearance requests online','Track clearance request status','Verify university requirements and obligations','Easier coordination with university departments','Less paperwork and fewer in-person visits','Faster clearance','Transparent status tracking']}},
- {n:9,ic:'🌱',t:'p',g:'st',tags:['s','c'],
-  ar:{name:'منصة الطلاب والمجتمع',short:'الطلاب والمجتمع',
-   desc:'منصة رقمية تجمع الخدمات والمبادرات الموجهة للطلاب وأفراد المجتمع، وتوفر نقطة وصول منظمة إلى البرامج والفرص والأنشطة ذات الصلة بالتفاعل المجتمعي والحياة الجامعية.',
-   feat:['نقطة وصول موحدة','تعزيز المشاركة الطلابية والمجتمعية','إبراز البرامج والفرص','تسهيل الوصول للخدمات']},
-  en:{name:'Students and Community Platform',short:'Students & Community',
-   desc:'A digital platform that brings together services and initiatives for students and the wider community, providing organized access to relevant programs, opportunities, and activities that support campus life and community engagement.',
-   feat:['A single access point','Stronger student and community participation','Programs and opportunities showcased','Easier access to services']}},
- {n:10,ic:'🌳',t:'p',g:'ext',tags:['r'],
-  ar:{name:'منصة المتقاعدين',short:'المتقاعدين',
-   desc:'منصة مخصصة لخدمة متقاعدي الجامعة عبر توفير المعلومات والخدمات والمبادرات الموجهة إليهم، وتعزيز التواصل المؤسسي واستمرار الاستفادة من خبراتهم ومشاركاتهم.',
-   feat:['استمرار التواصل مع المتقاعدين','تجميع الخدمات والمعلومات','إبراز المبادرات','تعزيز الانتماء المؤسسي']},
-  en:{name:'Retirees Platform',short:'Retirees',
-   desc:'A dedicated platform for university retirees, providing relevant information, services, and initiatives while supporting institutional communication and continued engagement with their experience and contributions.',
-   feat:['Ongoing contact with retirees','Services and information in one place','Initiatives showcased','Stronger institutional belonging']}},
- {n:11,ic:'🎓',t:'p',g:'ext',tags:['al'],
-  ar:{name:'منصة الخريجين',short:'الخريجين',
-   desc:'منصة رقمية لتعزيز العلاقة المستمرة بين الجامعة وخريجيها من خلال تنظيم بيانات التواصل وعرض الفرص والبرامج والفعاليات ذات الصلة بالتطوير المهني وبناء مجتمع الخريجين.',
-   feat:['بناء شبكة خريجين','تسهيل التواصل','نشر الفرص المهنية','دعم المبادرات والفعاليات المخصصة للخريجين']},
-  en:{name:'Alumni Platform',short:'Alumni',
-   desc:'A digital platform designed to strengthen ongoing engagement between the university and its alumni by organizing contact information and highlighting opportunities, programs, and events related to career development and the alumni community.',
-   feat:['An alumni network','Easier communication','Career opportunities published','Support for alumni initiatives and events']}},
- {n:12,ic:'🏘️',t:'p',g:'com',tags:['c'],
-  ar:{name:'منصة المجتمع',short:'المجتمع',
-   desc:'منصة إلكترونية لتنظيم وإبراز المبادرات والخدمات والفعاليات التي تقدمها الجامعة للمجتمع، وتيسير المشاركة والتواصل مع الجهات والأفراد المستفيدين.',
-   feat:['تعزيز الشراكة المجتمعية','عرض المبادرات','تسهيل المشاركة','تحسين التواصل مع المستفيدين']},
-  en:{name:'Community Platform',short:'Community',
-   desc:'An online platform for organizing and showcasing university initiatives, services, and events for the community, facilitating participation and communication with beneficiary individuals and organizations.',
-   feat:['Stronger community partnership','Initiatives showcased','Easier participation','Better communication with beneficiaries']}},
- {n:13,ic:'📣',t:'p',g:'units',tags:['u'],
-  ar:{name:'منصة النشر والتواصل',short:'النشر والتواصل',
-   desc:'منصة رقمية لدعم عمليات إعداد المحتوى والإعلانات والمواد الاتصالية ونشرها عبر القنوات المعتمدة، مع تنظيم طلبات النشر والتنسيق بين الجهات داخل الجامعة.',
-   feat:['تنظيم طلبات النشر','توحيد الإجراءات الاتصالية','تحسين تنسيق المحتوى','تسريع وصول الرسائل للمستفيدين']},
-  en:{name:'Publishing and Communication Platform',short:'Publishing & Communication',
-   desc:'A digital platform supporting the preparation and publication of content, announcements, and communication materials through approved channels, while organizing publishing requests and coordination among university departments.',
-   feat:['Organized publishing requests','Unified communication procedures','Better content coordination','Faster delivery of messages to beneficiaries']}},
- {n:14,ic:'🎨',t:'p',g:'st',tags:['s'],
-  ar:{name:'منصة الأنشطة الطلابية',short:'الأنشطة الطلابية',
-   desc:'منصة إلكترونية لعرض الأنشطة الطلابية والفعاليات والبرامج اللامنهجية وتنظيم المشاركة فيها، بما يساعد الطلاب على اكتشاف الفرص المناسبة وتنمية مهاراتهم وتجاربهم الجامعية.',
-   feat:['استعراض الفعاليات والأنشطة','تسهيل المشاركة','تنمية المهارات','تعزيز الحياة الجامعية']},
-  en:{name:'Student Activities Platform',short:'Student Activities',
-   desc:'An online platform for showcasing student activities, events, and extracurricular programs and organizing participation, helping students discover relevant opportunities and develop their skills and campus experience.',
-   feat:['Browse events and activities','Easier participation','Skill development','Richer campus life']}},
- {n:15,ic:'💡',t:'p',g:'aff',tags:['s','f','e'],
-  ar:{name:'منصة الابتكار',short:'الابتكار',
-   desc:'منصة رقمية لاستقبال الأفكار والمقترحات الابتكارية وتنظيم عرضها ومتابعة تقييمها وتطويرها، بما يشجع الإبداع وإيجاد حلول قابلة للتطبيق في البيئة الجامعية.',
-   feat:['استقبال الأفكار','تشجيع الإبداع','تنظيم تقييم المبادرات','إبراز فرص التحسين والتطوير']},
-  en:{name:'Innovation Platform',short:'Innovation',
-   desc:'A digital platform for submitting and organizing innovative ideas and proposals and following up on their evaluation and development, encouraging creativity and practical solutions within the university.',
-   feat:['Idea submission','Encouraged creativity','Organized evaluation of initiatives','Improvement and development opportunities highlighted']}},
- {n:16,ic:'📄',t:'p',g:'gen',tags:[],
-  ar:{name:'منصة خدمات PDF',short:'خدمات PDF',
-   desc:'منصة تقدم أدوات رقمية للتعامل مع مستندات PDF وتسهيل إنجاز العمليات الشائعة عليها، مثل جمع الملفات وتقسيمها وضغطها أو تحويلها، بحسب الأدوات المتاحة فعليًا بالمنصة.',
-   feat:['تسهيل معالجة المستندات','تقليل الحاجة لأدوات متعددة','توفير الوقت','دعم إدارة الملفات الرقمية']},
-  en:{name:'PDF Services Platform',short:'PDF Services',
-   desc:'A platform offering digital tools for handling PDF documents and common document operations, such as merging, splitting, compressing, or converting files, subject to the tools actually available on the platform.',
-   feat:['Easier document handling','Fewer separate tools needed','Time saved','Support for digital file management']}},
- {n:17,ic:'✨',t:'s',g:'gen',tags:[],
-  ar:{name:'خدمات ذات أثر',short:'خدمات ذات أثر',
-   desc:'مجموعة خدمات أو مبادرات تستهدف تحقيق قيمة ملموسة للمستفيدين والجامعة والمجتمع، مع التركيز على تيسير الوصول للخدمات وتعزيز الأثر الإيجابي وقياس فرص التحسين.',
-   feat:['تركيز على احتياجات المستفيد','تعزيز الأثر المجتمعي والمؤسسي','إبراز المبادرات','دعم التحسين المستمر']},
-  en:{name:'Impactful Services',short:'Impactful Services',
-   desc:'A collection of services or initiatives intended to create tangible value for beneficiaries, the university, and the community, with an emphasis on service accessibility, positive impact, and opportunities for improvement.',
-   feat:['Focus on beneficiary needs','Stronger community and institutional impact','Initiatives showcased','Continuous improvement']}},
- {n:18,ic:'💬',t:'s',g:'gen',tags:[],
-  ar:{name:'خدمة الاستشارات',short:'الاستشارات',
-   desc:'خدمة إلكترونية لتقديم طلبات الاستشارة في المجالات المتاحة لدى الجامعة، وتنظيم توجيهها إلى المختصين ومتابعة الردود وفق نطاق الخدمة والإجراءات المعتمدة.',
-   feat:['تسهيل طلب الاستشارة','الوصول إلى المختصين','تنظيم الطلبات والردود','توثيق التواصل']},
-  en:{name:'Consultation Service',short:'Consultation',
-   desc:'An electronic service for submitting consultation requests in fields supported by the university, directing them to relevant specialists, and following up on responses within the approved service scope and procedures.',
-   feat:['Easy consultation requests','Access to specialists','Organized requests and responses','Documented communication']}},
- {n:19,ic:'🏢',t:'s',g:'st',tags:['s'],
-  ar:{name:'خدمة التدريب التعاوني',short:'التدريب التعاوني',
-   desc:'خدمة إلكترونية لدعم إجراءات التدريب التعاوني من خلال تنظيم فرص التدريب وطلبات الالتحاق والمتابعة بين الطلاب والجهات المعنية، وفق المتطلبات الأكاديمية والتنظيمية المعتمدة.',
-   feat:['تيسير إجراءات التدريب','تنظيم طلبات الالتحاق','تعزيز التنسيق','دعم متابعة التجربة التدريبية']},
-  en:{name:'Cooperative Training Service',short:'Cooperative Training',
-   desc:'An electronic service supporting cooperative training by organizing training opportunities, applications, and coordination among students and relevant parties in accordance with approved academic and administrative requirements.',
-   feat:['Simpler training procedures','Organized applications','Better coordination','Follow-up on the training experience']}},
- {n:20,ic:'⏱️',t:'s',g:'fs',tags:['f','e'],
-  ar:{name:'خدمة المتابعة (المهمات والاستئذانات)',short:'المتابعة',
-   desc:'خدمة إلكترونية لتنظيم تسجيل ومتابعة المهمات الوظيفية وطلبات الاستئذان، وإحالتها للاعتماد وفق الصلاحيات المعتمدة، بما يسهم في توثيق الإجراءات وتحسين متابعة الحضور والمهام.',
-   feat:['تقديم طلبات المهمات والاستئذان','متابعة الموافقات','توثيق السجلات','تحسين الانضباط الإداري']},
-  en:{name:'Follow-up Service (Assignments and Short Leaves)',short:'Follow-up',
-   desc:'An electronic service for recording and tracking work assignments and short-leave requests and routing them for approval based on authorized roles, helping document procedures and improve attendance and task oversight.',
-   feat:['Submit assignment and short-leave requests','Track approvals','Documented records','Better administrative discipline']}},
- {n:21,ic:'🏆',t:'p',g:'aff',tags:['s','f','e','u'],
-  ar:{name:'جائزة جامعة جازان للتميز',short:'جائزة التميز',
-   desc:'جائزة مؤسسية تستهدف منسوبي الجامعة من طلاب وأعضاء هيئة تدريس وموظفين، إضافةً إلى جهات الجامعة من كليات وأقسام ووحدات وإدارات، لتحفيزهم على التطور والتميز والإبداع. تتيح المنصة التعريف بمسارات الجائزة وشروطها، وتنظيم الترشح والمشاركة ومتابعة إجراءاتها وإعلان نتائجها.',
-   feat:['التعريف بمسارات الجائزة وشروطها','تنظيم الترشح والمشاركة','متابعة إجراءات الجائزة','إعلان النتائج']},
-  en:{name:'Jazan University Excellence Award',short:'Excellence Award',
-   desc:'An institutional award that targets university students, faculty members, and staff, as well as university entities such as colleges, departments, units, and administrations, to motivate development, excellence, and creativity. The platform enables users to learn about the award tracks and requirements, organize nominations and participation, follow up on procedures, and announce results.',
-   feat:['Award tracks and requirements explained','Organized nominations and participation','Award procedure follow-up','Results announcement']}}
-];
-
-const BY=Object.fromEntries(P.map(p=>[p.n,p]));
-const FOR={s:['للطالب','for students'],f:['لعضو هيئة التدريس','for faculty'],e:['للموظف','for staff'],al:['للخريج','for alumni'],r:['للمتقاعد','for retirees'],c:['لأفراد المجتمع','for the community'],u:['لجهات الجامعة','for university units']};
-const TILE={20:{ar:'المهمات والاستئذانات',en:'Assignments & Short Leaves'},21:{ar:'جائزة جامعة جازان للتميز',en:'JU Excellence Award'},1:{ar:'MyJU',en:'MyJU'}};
-
-const T={
- ar:{brand:'ملتقى التحول الرقمي 2026',sub:'قيمة وأثر · دليل المنتجات الرقمية',lang:'English',fs:'ملء الشاشة',fsOff:'إنهاء ملء الشاشة',
-  rTitle:'من أنت؟',rSub:'اختر صفتك لعرض المنتجات التي تخدمك',all:'الكل',
-  kAll:'21 منتجًا رقميًا في الملتقى',kP:'منتجات تخدمك',hAll:'جميع <span class="grad">المنتجات الرقمية</span>',hP:f=>`المنتجات المتاحة <span class="grad">${f}</span>`,
-  plat:'منصة',serv:'خدمة',plats:n=>`${n} منصة`,servs:n=>`${n} خدمات`,ded:'مخصصة',forAll:'للجميع',dedN:n=>`<b>${n}</b> مخصصة`,genN:n=>`<b>${n}</b> للجميع`,
-  hint:'اضغط على أي منتج لعرض تفاصيله ورمز QR',more:'التفاصيل',
-  descH:'الوصف',featH:'المزايا',servesH:'يخدم',allBen:'جميع المستفيدين',primary:'الفئة الرئيسية',
-  qService:'رابط الخدمة',qGuide:'دليل المستخدم',scan:'امسح الرمز بكاميرا الجوال',pending:'الرابط قيد الإضافة',noLib:'تعذّر إنشاء الرمز، استخدم الرابط',
-  prev:'→ السابق',next:'التالي ←',close:'إغلاق',
-  foot:'إعداد لجنة المنتجات الرقمية للملتقى الرقمي 2026م · 5 نوفمبر 2026م'},
- en:{brand:'Digital Transformation Forum 2026',sub:'Value & Impact · Digital Products Guide',lang:'العربية',fs:'Full screen',fsOff:'Exit full screen',
-  rTitle:'Who are you?',rSub:'Choose your role to see the products that serve you',all:'All',
-  kAll:'21 digital products at the forum',kP:'Products that serve you',hAll:'All <span class="grad">digital products</span>',hP:f=>`Products available <span class="grad">${f}</span>`,
-  plat:'Platform',serv:'Service',plats:n=>`${n} platforms`,servs:n=>`${n} services`,ded:'Dedicated',forAll:'For all',dedN:n=>`<b>${n}</b> dedicated`,genN:n=>`<b>${n}</b> for all`,
-  hint:'Tap any product for details and QR codes',more:'Details',
-  descH:'Description',featH:'Features',servesH:'Serves',allBen:'All beneficiaries',primary:'Primary group',
-  qService:'Service link',qGuide:'User guide',scan:'Scan with your phone camera',pending:'Link coming soon',noLib:'QR unavailable, use the link',
-  prev:'← Previous',next:'Next →',close:'Close',
-  foot:'Prepared by the Digital Products Committee, Digital Forum 2026 · 5 November 2026'}
-};
-
-const S={lang:'ar',p:null,list:[],idx:0};
-try{const l=localStorage.getItem('dfp_lang');if(l==='ar'||l==='en')S.lang=l}catch(e){}
-const tx=()=>T[S.lang],L=o=>o[S.lang];
-const gName=k=>S.lang==='ar'?GROUPS[k].ar:GROUPS[k].en;
-const pLabel=k=>S.lang==='ar'?PK[k].ar:PK[k].en;
-const pB=k=>S.lang==='ar'?PK[k].arB:PK[k].enB;
-const tileName=p=>(TILE[p.n]&&TILE[p.n][S.lang])||L(p).short;
-const serves=(p,k)=>p.tags.includes(k)||p.g==='gen';
-const ALL=ORDER.flatMap(k=>P.filter(p=>p.g===k));
-function listFor(k){
-  if(!k)return ALL;
-  const d=ALL.filter(p=>p.tags.includes(k)),g=ALL.filter(p=>p.g==='gen');
-  return [...d,...g];
-}
-const reduced=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
-
-/* ---------- ambient ---------- */
-(()=>{if(reduced())return;const fx=$('#bgfx');let h='';for(let i=0;i<9;i++){const s=(18+Math.random()*34)|0;
-  h+=`<i style="--x:${(Math.random()*96).toFixed(1)}%;--s:${s}px;--o:${(.12+Math.random()*.2).toFixed(2)};--d:${(18+Math.random()*16).toFixed(1)}s;--dl:-${(Math.random()*30).toFixed(1)}s"></i>`}
-  fx.insertAdjacentHTML('beforeend',h)})();
-
-/* ---------- static text ---------- */
-function renderStatic(){
-  const t=tx(),app=$('#app'),dir=S.lang==='ar'?'rtl':'ltr';
-  app.dir=dir;app.lang=S.lang;document.documentElement.lang=S.lang;document.documentElement.dir=dir;
-  $('#tBrand').textContent=t.brand;$('#tSub').textContent=t.sub;
-  $('#langBtn').textContent=t.lang;$('#langBtn').setAttribute('lang',S.lang==='ar'?'en':'ar');
-  $('#rTitle').textContent=t.rTitle;$('#rSub').textContent=t.rSub;
-  $('#rail').setAttribute('aria-label',t.rTitle);
-  $('#rail').innerHTML=`<button type="button" class="pb" data-p=""><span class="pi" aria-hidden="true">✦</span><span class="pl">${t.all}</span><span class="pc">${ALL.length}</span></button>`+
-    PERS.map(pp=>`<button type="button" class="pb" data-p="${pp.k}"><span class="pi" aria-hidden="true">${pp.ic}</span><span class="pl">${pLabel(pp.k)}</span><span class="pc">${listFor(pp.k).length}</span></button>`).join('');
-  $('#foot').textContent=t.foot;
-  fsLabel();
-}
-
-/* ---------- services panel ---------- */
-function renderPanel(anim){
-  const t=tx(),k=S.p,list=listFor(k);S.list=list.map(p=>p.n);
-  $$('#rail .pb').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.p||null)===k)));
-  $('#pKick').textContent=k?t.kP:t.kAll;
-  $('#pTitle').innerHTML=k?t.hP(FOR[k][S.lang==='ar'?0:1]):t.hAll;
-  const nP=list.filter(p=>p.t==='p').length;
-  let meta='';
-  if(k){const d=list.filter(p=>p.g!=='gen').length;
-    meta=`<span class="chip"><i class="sw"></i>${t.dedN(d)}</span><span class="chip"><i class="sw g"></i>${t.genN(list.length-d)}</span>`}
-  else meta=`<span class="chip"><b>${nP}</b>${S.lang==='ar'?'منصة':'platforms'}</span><span class="chip"><b>${list.length-nP}</b>${S.lang==='ar'?'خدمات':'services'}</span>`;
-  meta+=`<span class="chip hint">👆 ${t.hint}</span>`;
-  $('#pMeta').innerHTML=meta;
-  const arrow=S.lang==='ar'?'←':'→';
-  const g=$('#grid');
-  g.innerHTML=list.map((p,i)=>{const G=GROUPS[p.g],gen=k&&p.g==='gen';
-    const tag=!k?`<span class="t-tag"><span aria-hidden="true">${G.ic}</span>${esc(gName(p.g))}</span>`
-      :gen?`<span class="t-tag"><span aria-hidden="true">🌐</span>${t.forAll}</span>`:`<span class="t-tag d">✓ ${t.ded}</span>`;
-    return `<button type="button" class="tile${gen?' gen':''}" style="--gc:${G.c};--i:${i}" data-open="${p.n}">
-      <span class="t-top"><span class="t-ico" aria-hidden="true"><span>${p.ic}</span></span><span class="t-type ${p.t}">${p.t==='p'?t.plat:t.serv}</span></span>
-      <span class="t-name">${esc(tileName(p))}</span>
-      <span class="t-foot">${tag}<span class="t-go" aria-hidden="true">${arrow}</span></span></button>`}).join('');
-  g.classList.remove('enter');
-  if(anim&&!reduced()){void g.offsetWidth;g.classList.add('enter')}
-  fit();
-}
-
-/* size the tiles so every product fits the remaining screen height */
-function fit(){
-  const g=$('#grid'),n=g.children.length;if(!n)return;
-  const cs=getComputedStyle(g),rem=parseFloat(getComputedStyle(document.documentElement).fontSize)||16;
-  g.classList.remove('scroll');g.style.removeProperty('--k');
-  const gap=parseFloat(cs.rowGap)||10,W=g.clientWidth,H=g.clientHeight;
-  let best=null;
-  for(let c=1;c<=n;c++){
-    const r=Math.ceil(n/c),w=(W-(c-1)*gap)/c,h=(H-(r-1)*gap)/r;if(w<=0||h<=0)continue;
-    const score=Math.min(w,h*1.2)*(1-.5*(r*c-n)/(r*c));
-    if(!best||score>best.score)best={c,r,w,h,score};
-  }
-  const minH=7.2*rem,minW=8.6*rem;
-  if(!best||best.h<minH||best.w<minW){
-    const c=Math.max(1,Math.floor((W+gap)/(10*rem+gap)));
-    g.style.setProperty('--c',c);g.classList.add('scroll');
-    g.style.setProperty('--k',Math.max(.8,Math.min(1,((W-(c-1)*gap)/c)/(10.5*rem))).toFixed(3));
-    return;
-  }
-  g.style.setProperty('--c',best.c);g.style.setProperty('--r',best.r);
-  let k=Math.max(.72,Math.min(1.4,best.h/(10*rem),best.w/(10.8*rem)));
-  g.style.setProperty('--k',k.toFixed(3));
-  const tiles=[...g.children],over=()=>tiles.some(t=>t.scrollHeight>t.clientHeight+1);
-  for(let i=0;i<12&&k>.72&&over();i++){k-=.05;g.style.setProperty('--k',k.toFixed(3))}
-}
-
-/* ---------- QR ---------- */
-function qrSVG(url){
-  if(typeof qrcode!=='function')return null;
-  try{
-    if(qrcode.stringToBytesFuncs&&qrcode.stringToBytesFuncs['UTF-8'])qrcode.stringToBytes=qrcode.stringToBytesFuncs['UTF-8'];
-    const q=qrcode(0,'M');q.addData(url);q.make();
-    const n=q.getModuleCount(),m=2;let d='';
-    for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(q.isDark(r,c))d+=`M${c+m} ${r+m}h1v1h-1z`;
-    return `<svg viewBox="0 0 ${n+2*m} ${n+2*m}" shape-rendering="crispEdges" role="img" aria-label="QR"><rect width="100%" height="100%" fill="#ffffff"/><path d="${d}" fill="#013364"/></svg>`;
-  }catch(e){return null}
-}
-function qrCard(label,ic,url){
-  const t=tx();
-  if(!url)return `<div class="qr-card"><div class="qr-lbl"><span aria-hidden="true">${ic}</span>${label}</div><div class="qr-box pending"><i aria-hidden="true">⏳</i>${t.pending}</div><small>&nbsp;</small></div>`;
-  const svg=qrSVG(url);
-  return `<div class="qr-card"><div class="qr-lbl"><span aria-hidden="true">${ic}</span>${label}</div>
-    ${svg?`<div class="qr-box">${svg}</div>`:`<div class="qr-box pending">${t.noLib}</div>`}
-    <small>${t.scan}</small><span class="qr-url" title="${esc(url)}">${esc(url.replace(/^https?:\/\//,''))}</span></div>`;
-}
-
-/* ---------- modal ---------- */
-let lastFocus=null;
-function modalHTML(){
-  const t=tx(),p=BY[S.list[S.idx]],G=GROUPS[p.g],d=L(p),o=S.lang==='ar'?p.en:p.ar,lk=LINKS[p.n]||{};
-  const sv=p.g==='gen'?`<span class="all">🌐 ${t.allBen}</span>`:p.tags.map(k=>`<span class="${S.p===k?'on':''}"><span aria-hidden="true">${PK[k].ic}</span>${pB(k)}</span>`).join('');
-  return `<div class="m-head"><span class="m-ico" aria-hidden="true">${p.ic}</span>
-      <div class="m-tt"><div class="m-tags"><span>${p.t==='p'?t.plat:t.serv}</span><span class="grp">${G.ic} ${esc(gName(p.g))}</span></div>
-      <h2 id="mTitle">${esc(d.name)}</h2><div class="alt"><bdi lang="${S.lang==='ar'?'en':'ar'}">${esc(o.name)}</bdi></div></div>
-      <button type="button" class="x" id="mClose" aria-label="${t.close}">✕</button></div>
-    <div class="m-body"><div class="m-info">
-      <section><h3>${t.descH}</h3><p>${esc(d.desc)}</p></section>
-      <section><h3>${t.featH}</h3><ul class="feats">${d.feat.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></section>
-      <section><h3>${t.servesH}</h3><div class="serves">${sv}</div></section>
-    </div><div class="m-qr">${qrCard(t.qService,'🔗',lk.service)}${qrCard(t.qGuide,'📘',lk.guide)}</div></div>
-    <div class="m-foot"><button type="button" data-step="-1">${t.prev}</button><span>${S.idx+1} / ${S.list.length}</span><button type="button" data-step="1">${t.next}</button></div>`;
-}
-function paintModal(swap){
-  const m=$('#modal'),p=BY[S.list[S.idx]];
-  m.style.setProperty('--gc',GROUPS[p.g].c);m.innerHTML=modalHTML();
-  if(swap&&!reduced()){m.querySelector('.m-body').classList.add('m-swap')}
-}
-function openModal(n){
-  S.idx=Math.max(0,S.list.indexOf(n));lastFocus=document.activeElement;
-  paintModal(false);$('#ov').classList.add('open');
-  setTimeout(()=>{const c=$('#mClose');if(c)c.focus({preventScroll:true})},60);
-}
-function step(s){S.idx=(S.idx+s+S.list.length)%S.list.length;paintModal(true);const b=$(`#modal [data-step="${s}"]`);if(b)b.focus({preventScroll:true})}
-function closeModal(){if(!$('#ov').classList.contains('open'))return;$('#ov').classList.remove('open');if(lastFocus&&lastFocus.focus)lastFocus.focus({preventScroll:true})}
-const isOpen=()=>$('#ov').classList.contains('open');
-
-/* ---------- full screen ---------- */
-const fsOK=!!(document.fullscreenEnabled||document.webkitFullscreenEnabled);
-function fsLabel(){const on=!!(document.fullscreenElement||document.webkitFullscreenElement);$('#fsLbl').textContent=on?tx().fsOff:tx().fs;$('#fsBtn').setAttribute('aria-label',on?tx().fsOff:tx().fs)}
-if(fsOK)$('#fsBtn').hidden=false;
-document.addEventListener('fullscreenchange',fsLabel);document.addEventListener('webkitfullscreenchange',fsLabel);
-
-/* ---------- events ---------- */
-$('#app').addEventListener('click',e=>{
-  const b=e.target.closest('button');if(!b)return;const d=b.dataset;
-  if(b.id==='langBtn'){S.lang=S.lang==='ar'?'en':'ar';try{localStorage.setItem('dfp_lang',S.lang)}catch(x){}renderStatic();renderPanel(false);if(isOpen())paintModal(false);return}
-  if(b.id==='fsBtn'){const el=document.documentElement,on=document.fullscreenElement||document.webkitFullscreenElement;
-    try{const r=on?(document.exitFullscreen||document.webkitExitFullscreen).call(document):(el.requestFullscreen||el.webkitRequestFullscreen).call(el);if(r&&r.catch)r.catch(()=>{})}catch(x){}return}
-  if('p' in d){const k=d.p||null;if(k!==S.p){S.p=k;renderPanel(true)}return}
-  if('open' in d){openModal(Number(d.open));return}
-  if('step' in d){step(Number(d.step));return}
-  if(b.id==='mClose'){closeModal();return}
-});
-$('#ov').addEventListener('click',e=>{if(e.target.id==='ov')closeModal()});
-document.addEventListener('keydown',e=>{
-  if(!isOpen())return;
-  if(e.key==='Escape'){e.preventDefault();closeModal();return}
-  if(e.key==='ArrowLeft'||e.key==='ArrowRight'){const fwd=(e.key==='ArrowLeft')===(S.lang==='ar');step(fwd?1:-1);return}
-  if(e.key==='Tab'){const f=$$('#modal button');if(!f.length)return;const a=f[0],z=f[f.length-1];
-    if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}}
-});
-/* swipe between products inside the popup */
-let sx=null,sy=null;
-$('#modal').addEventListener('touchstart',e=>{const t=e.touches[0];sx=t.clientX;sy=t.clientY},{passive:true});
-$('#modal').addEventListener('touchend',e=>{if(sx===null)return;const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;sx=null;
-  if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5){const fwd=(dx>0)===(S.lang==='ar');step(fwd?1:-1)}},{passive:true});
-
-/* return to the start after a quiet period (kiosk) */
-let idleT=null;
-function poke(){clearTimeout(idleT);if(IDLE_SECONDS>0)idleT=setTimeout(()=>{closeModal();if(S.p!==null){S.p=null;renderPanel(true)}},IDLE_SECONDS*1000)}
-['pointerdown','keydown','touchstart','wheel'].forEach(ev=>document.addEventListener(ev,poke,{passive:true}));
-
-/* refit on resize and after the web font arrives */
-let rq=null;const refit=()=>{cancelAnimationFrame(rq);rq=requestAnimationFrame(fit)};
-if('ResizeObserver' in window)new ResizeObserver(refit).observe($('#grid'));else window.addEventListener('resize',refit);
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(refit);
-
-renderStatic();renderPanel(true);poke();
-})();
-</script>
-
+</div>
+</header>
+<div class="shell stage">
+<section class="panel glass" aria-labelledby="pTitle">
+<div class="p-head">
+<div><span class="kicker"><i class="dot"></i><span>21 منتجًا رقميًا في الملتقى</span></span><h1>جميع <span class="grad">المنتجات الرقمية</span></h1></div>
+<div class="p-meta"><span class="chip"><b>14</b>منصة</span><span class="chip"><b>7</b>خدمات</span></div>
+</div>
+<div class="grid enter" style="--c: 6; --r: 4; --k: 0.938;"><div class="tile" style="--gc:#4fb3ff;--i:0">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🎧</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">خدمات المستفيدين</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌐</span>عامة لجميع المستفيدين</span></span></div><div class="tile" style="--gc:#4fb3ff;--i:1">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>📚</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">بوابة المعرفة</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌐</span>عامة لجميع المستفيدين</span></span></div><div class="tile" style="--gc:#4fb3ff;--i:2">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🗓️</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">لقاء مسؤول</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌐</span>عامة لجميع المستفيدين</span></span></div><div class="tile" style="--gc:#4fb3ff;--i:3">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>📄</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">خدمات PDF</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌐</span>عامة لجميع المستفيدين</span></span></div><div class="tile" style="--gc:#4fb3ff;--i:4">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>✨</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">خدمات ذات أثر</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌐</span>عامة لجميع المستفيدين</span></span></div><div class="tile" style="--gc:#4fb3ff;--i:5">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>💬</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">الاستشارات</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌐</span>عامة لجميع المستفيدين</span></span></div><div class="tile" style="--gc:#2bb673;--i:6">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>✅</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">إخلاء الطرف</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🧑‍🎓</span>الطلاب</span></span></div><div class="tile" style="--gc:#2bb673;--i:7">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🌱</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">الطلاب والمجتمع</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🧑‍🎓</span>الطلاب</span></span></div><div class="tile" style="--gc:#2bb673;--i:8">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🎨</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">الأنشطة الطلابية</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🧑‍🎓</span>الطلاب</span></span></div><div class="tile" style="--gc:#2bb673;--i:9">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🏢</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">التدريب التعاوني</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🧑‍🎓</span>الطلاب</span></span></div><div class="tile" style="--gc:#ffbd59;--i:10">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>📈</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">الترقيات</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">💼</span>أعضاء هيئة التدريس والموظفون</span></span></div><div class="tile" style="--gc:#ffbd59;--i:11">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🪪</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">الملف المهني الشامل</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">💼</span>أعضاء هيئة التدريس والموظفون</span></span></div><div class="tile" style="--gc:#ffbd59;--i:12">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>⏱️</span></span><span class="t-type s">خدمة</span></span>
+<span class="t-name">المهمات والاستئذانات</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">💼</span>أعضاء هيئة التدريس والموظفون</span></span></div><div class="tile" style="--gc:#36c5d6;--i:13">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🧭</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">MyJU</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🏫</span>منسوبو الجامعة كافة</span></span></div><div class="tile" style="--gc:#36c5d6;--i:14">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>💡</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">الابتكار</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🏫</span>منسوبو الجامعة كافة</span></span></div><div class="tile" style="--gc:#36c5d6;--i:15">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🏆</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">جائزة جامعة جازان للتميز</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🏫</span>منسوبو الجامعة كافة</span></span></div><div class="tile" style="--gc:#b18cff;--i:16">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>📊</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">البيانات الشاملة</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🏛️</span>جهات الجامعة وصنّاع القرار</span></span></div><div class="tile" style="--gc:#b18cff;--i:17">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>📣</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">النشر والتواصل</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🏛️</span>جهات الجامعة وصنّاع القرار</span></span></div><div class="tile" style="--gc:#f472b6;--i:18">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🌳</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">المتقاعدين</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🤝</span>الخريجون والمتقاعدون</span></span></div><div class="tile" style="--gc:#f472b6;--i:19">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🎓</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">الخريجين</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🤝</span>الخريجون والمتقاعدون</span></span></div><div class="tile" style="--gc:#ff8a3d;--i:20">
+<span class="t-top"><span class="t-ico" aria-hidden="true"><span>🏘️</span></span><span class="t-type p">منصة</span></span>
+<span class="t-name">المجتمع</span>
+<span class="t-foot"><span class="t-tag"><span aria-hidden="true">🌍</span>المجتمع</span></span></div></div>
+</section>
+</div>
+<footer class="foot">إعداد لجنة المنتجات الرقمية للملتقى الرقمي 2026م · 5 نوفمبر 2026م</footer>
+</div>
 </body>
 </html>
