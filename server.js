@@ -12,9 +12,10 @@ const stats = require('./lib/stats');
 const admin = require('./lib/admin');
 const journal = require('./lib/journal');
 const { createLimiter } = require('./lib/rateLimit');
-const { securityHeaders, sameOrigin, DOWNLOAD_CSP } = require('./lib/security');
+const { securityHeaders, sameOrigin, DOWNLOAD_CSP, PAGES_CSP } = require('./lib/security');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const PAGES_DIR = path.join(__dirname, 'pages');
 const NOT_FOUND_PAGE = path.join(PUBLIC_DIR, 'notfound.html');
 const MSG_NOT_FOUND = 'الكود غير صحيح أو انتهت صلاحية الملف';
 const MSG_TOO_MANY = 'محاولات كثيرة، حاول بعد قليل';
@@ -196,6 +197,17 @@ app.get('/d/:code', wrap(async (req, res) => {
 
 // Private admin dashboard (404 unless ADMIN_TOKEN is set).
 app.use(admin.router({ failLimiter, lookupLimiter, uploadLimiter }));
+
+// Hosted pages: pages/<name>.html is served at /k/<name> (short permanent links).
+// These are our own self-contained pages with inline CSS/JS, so they get
+// their own CSP that allows inline code but still no outside scripts.
+app.get('/k/:name', (req, res, next) => {
+  const name = req.params.name;
+  if (!/^[a-z0-9-]{1,40}$/.test(name)) return next();
+  res.set('Content-Security-Policy', PAGES_CSP);
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(PAGES_DIR, `${name}.html`), (err) => { if (err) next(); });
+});
 
 app.use(express.static(PUBLIC_DIR, { extensions: ['html'], index: 'index.html' }));
 
